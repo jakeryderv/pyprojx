@@ -1,0 +1,29 @@
+name: PR title
+
+# Metadata only: never check out or execute code from a pull request here.
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+permissions: {}
+
+jobs:
+  title:
+    name: PR title
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require a Conventional Commit title
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+
+          with open(os.environ["GITHUB_EVENT_PATH"], encoding="utf-8") as stream:
+              title = json.load(stream)["pull_request"]["title"]
+          pattern = r"(?:feat|fix|perf|refactor|docs|style|test|build|ci|chore|revert)(?:\([\w./-]+\))?!?: \S[^\r\n]*"
+          if not re.fullmatch(pattern, title):
+              raise SystemExit("Use a Conventional Commit PR title, e.g. 'feat: validate metadata'.")
+          print("PR title follows Conventional Commits.")
+          PY
