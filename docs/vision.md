@@ -14,7 +14,8 @@ express dependency requirements correctly does not mean resolving dependencies;
 configuring build tools does not mean becoming a build system.
 
 This document describes the intended direction, not implemented functionality.
-Version 0.0.1 is an importable development stub; there is no analyzer or CLI yet.
+pyprojx is a development stub: the `pyprojx` command only prints its help and
+version, and there is no analyzer yet.
 
 Think:
 

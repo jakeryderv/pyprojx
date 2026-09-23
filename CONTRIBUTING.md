@@ -1,8 +1,10 @@
 # Contributing to pyprojx
 
 pyprojx is at the development-stub stage. Start with the
-[project vision](docs/vision.md) for its intended scope; planned features are not
-yet implemented. The planned top-level command is `pyprojx`; there is no CLI yet.
+[project vision](docs/vision.md) for its intended scope and
+[decision 0001](docs/decisions/0001-rust-core.md) for why it is written in Rust.
+The `pyprojx` command exists but only supports `--help` and `--version`; planned
+features are not yet implemented.
 
 ## Proposing changes
 
@@ -17,71 +19,81 @@ behavior, and distinguish implemented features from plans in documentation.
 
 ## Development setup
 
-Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/getting-started/installation/).
-Workflows use uv 0.12.18. `.python-version` selects Python 3.11 for development;
-CI tests Python 3.11, 3.12, 3.13, and 3.14.
+Requires [rustup](https://rustup.rs/) and
+[uv](https://docs.astral.sh/uv/getting-started/installation/). `rust-toolchain.toml`
+pins the Rust toolchain (with rustfmt and clippy), and rustup installs it on first
+use. Workflows use uv 0.12.18, which manages the Python development tools.
 
 ```sh
 git clone https://github.com/jakeryderv/pyprojx.git
 cd pyprojx
+rustup toolchain install
 uv sync --locked
 uv run --locked pre-commit install
 ```
 
-The package lives in `src/pyprojx/`, and tests live in `tests/`. Development
-tools are in the `dev` dependency group and locked in `uv.lock`; do not install
-separate tool versions to work on this repository.
+The code is a Cargo workspace:
+
+- `crates/pyprojx_core/`: the analysis library. Keep CLI concerns such as
+  argument parsing and output rendering out of it.
+- `crates/pyprojx/`: the `pyprojx` command-line binary, a thin layer over the
+  core. CLI integration tests live in `crates/pyprojx/tests/`.
+
+`pyproject.toml` configures the maturin build that packages the binary as Python
+wheels. `uv sync` installs only development tools (pre-commit); it does not build
+pyprojx. Development tools are locked in `uv.lock` and Rust dependencies in
+`Cargo.lock`; do not install separate tool versions to work on this repository.
 
 ## Local checks
 
 Run these from the repository root:
 
 ```sh
-uv run --locked ruff check .
-uv run --locked ruff format --check .
-uv run --locked ty check
-uv run --locked pytest
+cargo fmt --all --check
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo test --workspace --locked
+uv lock --check
 uv run --locked pre-commit validate-config
-uv build --no-sources
-uvx --from twine==7.0.0 twine check --strict dist/*
 ```
 
-`uv sync --locked` fails if `pyproject.toml` and `uv.lock` disagree. Use
-`uv add --dev <tool>` for intentional development dependency changes and commit
-both files. Run `uv lock` after other changes that affect dependency resolution.
+Use `cargo run -- <args>` to try the CLI, for example `cargo run -- --version`.
+Use `cargo add` for intentional Rust dependency changes and `uv add --dev <tool>`
+for development tools, and commit the updated lockfiles.
 
-Pre-commit runs only Ruff lint/fixes and formatting on staged Python files,
-using the uv-locked versions. If it changes files, review and stage the fixes
-before committing again. To check all tracked files:
+Pre-commit runs only `cargo fmt` when Rust files are staged. If it changes files,
+review and stage the fixes before committing again. To run it on all files:
 
 ```sh
 uv run --locked pre-commit run --all-files
 ```
 
-Type checks and tests are deliberately not commit hooks; run them locally before
-pushing. The current tests cover installed package metadata and the typing marker,
-not the planned analyzer or CLI.
+Clippy and tests are deliberately not commit hooks; run them locally before
+pushing.
 
 ### Check built distributions
 
-Start with a clean `dist/` directory so old releases are not tested accidentally.
-After building, smoke-test both the wheel and source distribution in isolated
-environments (POSIX shell):
+pyprojx is distributed as platform-specific wheels containing the binary, plus a
+source distribution that builds it with Rust. Start with a clean `dist/`
+directory, then build, check, and smoke-test both for your platform (POSIX
+shell):
 
 ```sh
-EXPECTED_VERSION="$(uv version --short)"
-export EXPECTED_VERSION
+uvx --from maturin==1.15.0 maturin build --release --locked --out dist
+uvx --from maturin==1.15.0 maturin sdist --out dist
+uvx --from twine==7.0.0 twine check --strict dist/*
 for artifact in dist/*.whl dist/*.tar.gz; do
-  uv run --isolated --no-project --with "$artifact" \
-    python -I -c \
-    'import os, pyprojx; from importlib.metadata import version; from importlib.resources import files; assert version("pyprojx") == os.environ["EXPECTED_VERSION"]; assert files(pyprojx).joinpath("py.typed").is_file(); print(pyprojx.__file__)'
+  uv tool run --isolated --no-cache --from "./$artifact" pyprojx --version
 done
 ```
 
-CI runs the same checks on pull requests and pushes to `main`. Its stable `CI`
-status requires quality checks, all supported Python test jobs, and distribution
-validation to pass. Generated artifacts, virtual environments, credentials, and
-local agent state must not be committed.
+Local wheels are tagged for your machine's C library and are not suitable for
+publishing; CI builds the portable wheels that are released.
+
+CI runs the checks and tests on Linux, macOS, and Windows, and builds and
+smoke-tests wheels for Linux (x86_64, aarch64), macOS (x86_64, arm64), and
+Windows (x86_64), plus the source distribution. Its stable `CI` status requires
+all of them to pass. Build output, virtual environments, credentials, and local
+agent state must not be committed.
 
 ## Pull requests and commits
 
@@ -103,9 +115,9 @@ work-in-progress commits do not need conventional titles. Before merging, the
 solo-maintainer workflow. Admin bypass is disabled. Keep the branch up to date
 with `main` before merging.
 
-Dependabot checks uv dependencies and GitHub Actions weekly, grouping development
-dependencies and action updates separately, with a seven-day cooldown for new
-versions. Review its changes and let CI validate them rather than automatically
+Dependabot checks Cargo dependencies, uv development dependencies, and GitHub
+Actions weekly, grouping each ecosystem's updates, with a seven-day cooldown for
+new versions. Review its changes and let CI validate them rather than automatically
 merging them.
 
 ## Releases

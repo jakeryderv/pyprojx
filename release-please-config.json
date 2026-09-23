@@ -3,7 +3,7 @@
   "bootstrap-sha": "8aaea118c82cdf94d64f2deb21c0a7325c01add3",
   "packages": {
     ".": {
-      "release-type": "python",
+      "release-type": "simple",
       "include-component-in-tag": false,
       "include-v-in-tag": true,
       "bump-minor-pre-major": true,
@@ -24,8 +24,13 @@
       "extra-files": [
         {
           "type": "toml",
-          "path": "uv.lock",
-          "jsonpath": "$.package[?(@.name == 'pyprojx' || @.name.value == 'pyprojx')].version"
+          "path": "Cargo.toml",
+          "jsonpath": "$.workspace.package.version"
+        },
+        {
+          "type": "toml",
+          "path": "Cargo.lock",
+          "jsonpath": "$.package[?(@.name == 'pyprojx' || @.name.value == 'pyprojx' || @.name == 'pyprojx_core' || @.name.value == 'pyprojx_core')].version"
         }
       ]
     }

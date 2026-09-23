@@ -26,9 +26,14 @@ source linting, or type checking.
 
 ## Current status
 
-**[Version 0.0.1](https://pypi.org/project/pyprojx/0.0.1/) is a development
-stub.** The package is importable and has no runtime dependencies, but the
-capabilities above—including the CLI—are not implemented yet.
+**pyprojx is a development stub.** The `pyprojx` command only prints its help and
+version; the capabilities above are not implemented yet. The
+[0.0.1 release](https://pypi.org/project/pyprojx/0.0.1/) on PyPI is a
+placeholder that predates the command.
+
+pyprojx is written in Rust and will be distributed on PyPI as prebuilt binaries,
+like Ruff and uv, so no Rust toolchain is needed to install it. Once released,
+run it with `uvx pyprojx` or install it with `uv tool install pyprojx`.
 
 ## Learn more and contribute
 

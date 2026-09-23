@@ -7,8 +7,9 @@ checks and distribution validation.
 
 1. Merge a feature or fix PR into `main` with a Conventional Commit title.
 2. Release Please opens or updates a release PR containing the proposed version,
-   `CHANGELOG.md`, and `.release-please-manifest.json` updates. It updates
-   `pyproject.toml` and the root package's version in `uv.lock` together.
+   `CHANGELOG.md`, and `.release-please-manifest.json` updates. It updates the
+   workspace version in `Cargo.toml` and the pyprojx crate versions in
+   `Cargo.lock` together; the wheel version is read from `Cargo.toml`.
 3. Review the release PR, including the changelog and version. Required CI must
    pass before merging. Check that the README accurately describes the new version.
 4. Squash-merge the release PR. Release Please creates the version tag and GitHub
@@ -36,18 +37,23 @@ While the project is below `1.0.0`:
 - Documentation, CI, tests, and tooling-only commits do not independently trigger
   a release unless marked as breaking changes. Use `chore(deps)` for development
   dependency updates; user-facing dependency fixes should use `fix(deps)`.
+  Cargo dependencies are compiled into the binary, so retitle a Dependabot Cargo
+  update to `fix(deps)` when it fixes something users would notice.
 
 Moving to `1.0.0` is an explicit maintainer decision. Configure a deliberate
 release override only after agreeing that milestone; remove the override after
 use. Do not hand-edit the version on ordinary feature PRs.
 
-`release-please-config.json` defines this policy. Its TOML extra-file updater
-changes only the `pyprojx` package version in `uv.lock`, not dependency versions.
-Its JSONPath handles both plain names and the tagged `name.value` representation
-used by the pinned Release Please TOML parser. Recheck the updater when upgrading
-Release Please; a simulated version bump should change only the root package
-version and still pass `uv lock --check`.
-CI's `uv sync --locked` checks that the updated lockfile remains consistent.
+`release-please-config.json` defines this policy. It uses the `simple` release
+type, because Release Please's `rust` type does not support a virtual workspace
+whose members inherit `workspace.package.version`. Two TOML extra-file updaters
+change only `workspace.package.version` in `Cargo.toml` and the `pyprojx` and
+`pyprojx_core` versions in `Cargo.lock`, not dependency versions. The
+`Cargo.lock` JSONPath handles both plain names and the tagged `name.value`
+representation used by the pinned Release Please TOML parser. Recheck the
+updaters when upgrading Release Please or adding a crate; a simulated version
+bump should change only those version lines and still pass `cargo check --locked`.
+CI's `--locked` Cargo commands check that the updated lockfile remains consistent.
 
 ## One-time GitHub App setup
 
@@ -98,9 +104,16 @@ than the current branch tip. It requires:
 
 - A stable `vMAJOR.MINOR.PATCH` tag matching the package metadata.
 - The released commit to be in `main`'s history.
-- Locked dependencies, Ruff, ty, and pytest on Python 3.11–3.14 to pass.
-- Wheel and sdist builds, strict metadata checks, and isolated installation/import
-  checks to pass.
+- Locked dependencies, `cargo fmt`, clippy, and tests on Linux, macOS, and
+  Windows to pass.
+- Wheels for every supported platform and the sdist to build, pass strict
+  metadata checks, and report the expected `pyprojx --version` when installed in
+  isolation.
+
+Wheels are built natively on each platform's runner by maturin: Linux x86_64
+and aarch64 (manylinux), macOS x86_64 and arm64, and Windows x86_64. Other
+platforms, such as musl Linux or Windows on Arm, fall back to the sdist and need
+a Rust toolchain until wheels are added for them.
 
 Only after validation does a separate job download the same distribution
 artifacts and run `uv publish --trusted-publishing always`. That job alone has
@@ -108,8 +121,9 @@ artifacts and run `uv publish --trusted-publishing always`. That job alone has
 CI has read-only repository permissions and no publishing credentials.
 
 GitHub Actions are pinned to commit SHAs. Dependabot proposes action updates;
-the uv executable and the release metadata checker are explicitly versioned in
-workflows and should be reviewed separately when updating tooling.
+the uv executable, maturin, and the release metadata checker are explicitly
+versioned in workflows, and the Rust toolchain in `rust-toolchain.toml`; review
+those separately when updating tooling.
 
 ## Verification and recovery
 
