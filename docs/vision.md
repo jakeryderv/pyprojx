@@ -56,9 +56,55 @@ This is a direction, not a commitment to implement every authoring feature.
 Generation requires explicit choices and defaults; schemas alone cannot determine
 what a project should configure.
 
-The first slice remains deliberately narrow: `pyprojx check` parses one file,
-reports TOML syntax errors with useful locations, and returns clear exit codes.
-Schemas, version detection, formatting, edits, and LSP support come later.
+### Initial focus
+
+Coverage starts where the specifications and version information are clearest,
+then widens as concrete needs appear:
+
+1. **Python/PyPA standards.** The standardized `[project]`, `[build-system]`, and
+   `[dependency-groups]` tables come first. They are defined by packaging
+   specifications rather than any single tool, and what is valid can depend on
+   which specification versions and Python versions a project targets.
+2. **Astral tools: uv, Ruff, and ty.** These are the first targets for
+   version-aware tool configuration. Each publishes a JSON schema for its
+   settings with its source, and versions can often be detected from `uv.lock`
+   (for Ruff and ty as project dependencies) or from settings such as
+   `[tool.uv] required-version`. When a version cannot be detected, diagnostics
+   say so rather than guessing.
+3. **Other tools**, such as pytest, coverage, mypy, and build backends, are
+   addressed as needs arise. Their schemas are published less consistently, so
+   support may start partial or version-agnostic.
+
+### Building on existing work
+
+pyprojx should reuse existing knowledge rather than re-derive it: packaging
+specifications, tool-published schemas, and existing validators where they fit.
+General TOML tooling, such as the Taplo and Tombi formatters and language
+servers, already covers TOML syntax and schema-driven editing. pyprojx's
+contribution is version awareness and explanation specific to `pyproject.toml`,
+not another general-purpose TOML toolkit.
+
+### First slices
+
+Each slice should be useful on its own and build the foundation the next one
+needs:
+
+1. **`pyprojx check` for syntax.** Parse one `pyproject.toml`, report TOML syntax
+   errors with precise locations, and return clear exit codes. This establishes
+   the diagnostic model and rendering that later checks reuse.
+2. **Standard tables.** Validate `[project]`, `[build-system]`, and
+   `[dependency-groups]` against their specifications, without version detection.
+3. **Version-aware Ruff configuration.** Detect the locked Ruff version from
+   `uv.lock` and validate `[tool.ruff]` against that release's schema: the first
+   end-to-end demonstration of version-aware checking. uv and ty follow the same
+   pattern.
+
+Formatting, edits, and LSP support come after these.
+
+Slice 1 raises the first design question: diagnostics need source locations for
+valid keys and values, not just syntax errors. The standard library's `tomllib`
+reports neither, and `tomlkit` reports positions only for syntax errors, so a
+location-tracking parser is needed.
 
 ### Analysis-first foundation
 
