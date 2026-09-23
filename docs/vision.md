@@ -101,10 +101,10 @@ needs:
 
 Formatting, edits, and LSP support come after these.
 
-Slice 1 raises the first design question: diagnostics need source locations for
-valid keys and values, not just syntax errors. The standard library's `tomllib`
-reports neither, and `tomlkit` reports positions only for syntax errors, so a
-location-tracking parser is needed.
+Diagnostics need source locations for valid keys and values, not just syntax
+errors, and later edits need a lossless representation. pyprojx is therefore
+implemented in Rust on the same TOML crates as uv and Ruff; see
+[decision 0001](decisions/0001-rust-core.md).
 
 ### Analysis-first foundation
 
