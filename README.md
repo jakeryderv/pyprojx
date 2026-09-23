@@ -10,7 +10,8 @@ analysis as the foundation for useful explanations and reviewable improvements.
 
 ## Planned capabilities
 
-- Validate Python/PyPA sections and tool-specific configuration.
+- Validate Python/PyPA sections and tool-specific configuration, starting with
+  uv, Ruff, and ty.
 - Explain configuration issues, including unknown settings, deprecated options,
   and conflicts, with useful diagnostics and suggested fixes.
 - Provide formatting, a `pyprojx` CLI, and language-server features such as
