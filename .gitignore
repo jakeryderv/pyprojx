@@ -1,10 +1,15 @@
-# Python-generated files
+# Python environments and generated artifacts
+.venv/
 __pycache__/
-*.py[oc]
+*.py[cod]
+*.egg-info/
 build/
 dist/
-wheels/
-*.egg-info
+.pytest_cache/
+.ruff_cache/
 
-# Virtual environments
-.venv
+# Local agent state and credentials
+.pi/
+.env
+.env.*
+.pypirc
