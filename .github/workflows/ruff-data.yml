@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  BRANCH: bot/ruff-data
+  BRANCH: bot/ruff-data-test
   DATA: crates/pyprojx_core/src/ruff_data.rs
 
 jobs:
@@ -26,7 +26,6 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: main
           persist-credentials: false
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
@@ -69,7 +68,7 @@ jobs:
           id="$(gh api "/users/${bot}" --jq .id)"
           git config user.name "$bot"
           git config user.email "${id}+${bot}@users.noreply.github.com"
-          title="fix: update Ruff data for Ruff $LATEST"
+          title="test: update Ruff data for Ruff $LATEST"
           git switch --create "$BRANCH"
           git commit --quiet --message "$title" -- "$DATA"
           git push --force "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$BRANCH"
@@ -77,6 +76,6 @@ jobs:
           if gh pr view "$BRANCH" --json state --jq .state 2>/dev/null | grep -qx OPEN; then
             gh pr edit "$BRANCH" --title "$title" --body "$body"
           else
-            gh pr create --base main --head "$BRANCH" --title "$title" --body "$body"
+            gh pr create --base test/ruff-data-pr --head "$BRANCH" --title "$title" --body "$body"
           fi
           echo "Opened or updated the pull request for Ruff $LATEST." >> "$GITHUB_STEP_SUMMARY"
