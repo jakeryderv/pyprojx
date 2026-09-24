@@ -1,0 +1,53 @@
+---
+source: crates/pyprojx/tests/check.rs
+info:
+  program: pyprojx
+  args:
+    - check
+  env:
+    NO_COLOR: "1"
+---
+success: false
+exit_code: 1
+----- stdout -----
+warning[invalid-value]: `python-version` is Python 3.12, but `requires-python` allows Python 3.10
+  --> pyproject.toml:10:18
+   |
+ 4 | requires-python = ">=3.10"
+   |                   -------- `requires-python` set here
+...
+10 | python-version = "3.12"
+   |                  ^^^^^^
+   |
+   = help: ty may accept code that needs Python 3.12; set `python-version = "3.10"`, or remove it so that ty uses `requires-python`
+
+warning[invalid-value]: unknown rule `unresolved-imprt`
+  --> pyproject.toml:13:1
+   |
+13 | unresolved-imprt = "error"
+   | ^^^^^^^^^^^^^^^^
+   |
+   = help: did you mean `unresolved-import`?
+
+warning[unsupported-feature]: some ty versions the project allows do not support the rule `missing-direct-dependency`
+  --> pyproject.toml:14:1
+   |
+ 7 | dev = ["ty>=0.0.40"]
+   |        ------------ allows versions without it
+...
+14 | missing-direct-dependency = "warn"
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: ty added it in 0.0.76; require `ty>=0.0.76`
+
+error[unknown-key]: unknown key `rule` in `[[tool.ty.overrides]]`
+  --> pyproject.toml:18:1
+   |
+18 | rule = { unresolved-reference = "ignore" }
+   | ^^^^
+   |
+   = help: did you mean `rules`?
+
+Found 1 error and 3 warnings.
+
+----- stderr -----

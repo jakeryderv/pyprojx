@@ -68,6 +68,8 @@ pub enum OptionKind {
     Table,
     /// A table whose keys the user chooses, such as `lint.per-file-ignores`.
     Map,
+    /// An array of tables of options, such as ty's `[[tool.ty.overrides]]`.
+    TableArray,
     Value,
 }
 

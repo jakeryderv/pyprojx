@@ -17,6 +17,7 @@ mod license;
 mod project;
 mod ruff;
 mod tool;
+mod ty;
 
 /// Checks the standard tables of a valid TOML document.
 pub fn check(root: &DeTable<'_>, text: &str) -> Vec<Diagnostic> {
@@ -29,6 +30,7 @@ pub fn check(root: &DeTable<'_>, text: &str) -> Vec<Diagnostic> {
     dependency_groups::check(&mut context, root);
     compatibility::check(&mut context, root);
     ruff::check(&mut context, root);
+    ty::check(&mut context, root);
     context.diagnostics
 }
 

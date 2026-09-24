@@ -21,6 +21,9 @@ pub mod tool;
 pub mod trove;
 #[rustfmt::skip]
 mod trove_data;
+pub mod ty;
+#[rustfmt::skip]
+mod ty_data;
 
 pub use diagnostic::{Diagnostic, Rule, Severity};
 

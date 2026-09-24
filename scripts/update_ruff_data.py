@@ -11,7 +11,7 @@ release, it records option deprecation messages (`ruff config`), each rule's
 status (`ruff rule --all`), and the rule codes Ruff redirects to others.
 
 Schemas are cached, so later runs only download new releases. The script needs
-the network, so it runs on a schedule (.github/workflows/ruff-data.yml) rather
+the network, so it runs on a schedule (.github/workflows/tool-data.yml) rather
 than in CI, or by hand:
 
     uv run scripts/update_ruff_data.py
@@ -32,7 +32,9 @@ from schema_history import (
     CACHE,
     ROOT,
     Option,
+    add_aliases,
     collect,
+    example,
     fetch,
     first_where,
     generate_options,
@@ -41,6 +43,7 @@ from schema_history import (
     releases,
     rust_ranges,
     rust_string,
+    setting,
 )
 
 OUTPUT = ROOT / "crates/pyprojx_core/src/ruff_data.rs"
@@ -307,6 +310,14 @@ def main() -> int:
             schemas[index] = schemas[index - 1]
 
     found = collect(versions, schemas, {"RuleSelector": ("selector",)})
+
+    def accepts(index: int, path: str) -> bool:
+        option = found[path]
+        value = example(option.types.get(option.present[-1]), option.kind)
+        config = setting("tool.ruff", found, path, value)
+        return "ruff failed" not in check(versions[index], config)
+
+    renamed = add_aliases(found, versions, accepts)
     rules: dict[str, list[int]] = {}
     for index, document in enumerate(schemas):
         for selector in selectors(document):
@@ -328,7 +339,7 @@ def main() -> int:
     content = generate(
         versions,
         found,
-        deprecation_messages(latest),
+        renamed | deprecation_messages(latest),
         rules,
         statuses,
         redirects(latest),
