@@ -13,6 +13,7 @@ publish = false
 strsim.workspace = true
 toml.workspace = true
 toml_parser.workspace = true
+url.workspace = true
 uv-normalize.workspace = true
 uv-pep440.workspace = true
 uv-pep508.workspace = true

@@ -2,7 +2,7 @@
 
 use toml::de::DeTable;
 
-use super::Context;
+use super::{Context, is_object_reference};
 use crate::diagnostic::{Diagnostic, Rule};
 use crate::document::get;
 use crate::standards::check_requirement;
@@ -17,7 +17,7 @@ pub(super) fn check(context: &mut Context<'_>, root: &DeTable<'_>) {
     let Some(table) = context.expect_table("build-system", value) else {
         return;
     };
-    context.check_keys(table, "build-system", KEYS);
+    context.check_keys(table, "`[build-system]`", KEYS);
 
     match get(table, "requires") {
         Some((_, requires)) => {
@@ -71,25 +71,6 @@ pub(super) fn check(context: &mut Context<'_>, root: &DeTable<'_>) {
     }
 }
 
-/// Whether `reference` has the form `module.path` or `module.path:object.path`.
-fn is_object_reference(reference: &str) -> bool {
-    let (module, object) = match reference.split_once(':') {
-        Some((module, object)) => (module, Some(object)),
-        None => (reference, None),
-    };
-    is_dotted_identifier(module) && object.is_none_or(is_dotted_identifier)
-}
-
-fn is_dotted_identifier(value: &str) -> bool {
-    value.split('.').all(|part| {
-        let mut chars = part.chars();
-        chars
-            .next()
-            .is_some_and(|first| first == '_' || first.is_alphabetic())
-            && chars.all(|char| char == '_' || char.is_alphanumeric())
-    })
-}
-
 /// Whether `path` is relative and does not leave its base directory.
 fn is_contained_relative_path(path: &str) -> bool {
     let is_absolute = path.starts_with(['/', '\\'])
@@ -128,7 +109,10 @@ build-backend = "hatchling.build"
 backend-path = ["_build", "./tools/../backend"]
 "#;
         assert_eq!(diagnostics(text), []);
-        assert_eq!(diagnostics("[project]\nname = \"x\"\n"), []);
+        assert_eq!(
+            diagnostics("[project]\nname = \"x\"\nversion = \"1\"\n"),
+            []
+        );
     }
 
     #[test]

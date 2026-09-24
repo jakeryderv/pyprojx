@@ -44,7 +44,10 @@ impl Rule {
         }
     }
 
-    /// How serious this rule's diagnostics are.
+    /// How serious this rule's diagnostics are by default.
+    ///
+    /// Errors are problems that tools reject or that break builds. Specification
+    /// violations that tools tolerate are reported as warnings instead.
     pub const fn severity(self) -> Severity {
         match self {
             Self::Toml11Syntax | Self::DeprecatedMetadata => Severity::Warning,
@@ -71,6 +74,8 @@ pub enum Severity {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Diagnostic {
     pub rule: Rule,
+    /// Defaults to the rule's severity.
+    pub severity: Severity,
     pub message: String,
     /// Byte range in the source text. An empty range points between two characters.
     pub span: Range<usize>,
@@ -91,6 +96,7 @@ impl Diagnostic {
     pub fn new(rule: Rule, message: impl Into<String>, span: Range<usize>) -> Self {
         Self {
             rule,
+            severity: rule.severity(),
             message: message.into(),
             span,
             labels: Vec::new(),
@@ -113,7 +119,14 @@ impl Diagnostic {
         self
     }
 
+    /// Reports this diagnostic as a warning, for a violation tools tolerate.
+    #[must_use]
+    pub fn as_warning(mut self) -> Self {
+        self.severity = Severity::Warning;
+        self
+    }
+
     pub fn severity(&self) -> Severity {
-        self.rule.severity()
+        self.severity
     }
 }

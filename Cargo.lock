@@ -847,6 +847,7 @@ dependencies = [
  "toml",
  "toml-test-data",
  "toml_parser",
+ "url",
  "uv-normalize",
  "uv-pep440",
  "uv-pep508",

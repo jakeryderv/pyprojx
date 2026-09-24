@@ -86,6 +86,15 @@ git diff crates/pyprojx/tests/snapshots/
 (`cargo insta review`). Commit reviewed snapshots with the change. CI never
 writes snapshots, so a mismatch fails the tests.
 
+### Rules and severity
+
+Each diagnostic belongs to a rule with a stable kebab-case name, such as
+`invalid-toml` or `unknown-key`. Report an **error** when tools reject the
+configuration or builds fail, and a **warning** for specification violations and
+deprecations that tools tolerate. Base the choice on evidence: for example, build
+a small project with the popular backends (hatchling, setuptools) and note the
+results in the pull request.
+
 ### Real-world corpus
 
 `crates/pyprojx_core/tests/corpus/` holds unmodified `pyproject.toml` files from

@@ -9,6 +9,7 @@ use crate::document::{Value, describe_type, string_span};
 use crate::standards::Problem;
 
 mod build_system;
+mod project;
 
 /// Checks the standard tables of a valid TOML document.
 pub fn check(root: &DeTable<'_>, text: &str) -> Vec<Diagnostic> {
@@ -17,6 +18,7 @@ pub fn check(root: &DeTable<'_>, text: &str) -> Vec<Diagnostic> {
         diagnostics: Vec::new(),
     };
     build_system::check(&mut context, root);
+    project::check(&mut context, root);
     context.diagnostics
 }
 
@@ -32,7 +34,9 @@ impl Context<'_> {
     }
 
     /// Reports keys of `table` that are not in `allowed`, suggesting close matches.
-    fn check_keys(&mut self, table: &DeTable<'_>, table_name: &str, allowed: &[&str]) {
+    ///
+    /// `location` describes the table in messages, such as "`[build-system]`".
+    fn check_keys(&mut self, table: &DeTable<'_>, location: &str, allowed: &[&str]) {
         for key in table.keys() {
             let name = key.get_ref().as_ref();
             if allowed.contains(&name) {
@@ -45,7 +49,7 @@ impl Context<'_> {
             self.report(
                 Diagnostic::new(
                     Rule::UnknownKey,
-                    format!("unknown key `{name}` in `[{table_name}]`"),
+                    format!("unknown key `{name}` in {location}"),
                     key.span(),
                 )
                 .with_help(help),
@@ -133,6 +137,26 @@ fn suggest<'a>(name: &str, allowed: &[&'a str]) -> Option<&'a str> {
         .filter(|(_, score)| *score >= 0.85)
         .max_by(|(_, a), (_, b)| a.total_cmp(b))
         .map(|(candidate, _)| candidate)
+}
+
+/// Whether `reference` has the form `module.path` or `module.path:object.path`.
+fn is_object_reference(reference: &str) -> bool {
+    let (module, object) = match reference.split_once(':') {
+        Some((module, object)) => (module, Some(object)),
+        None => (reference, None),
+    };
+    is_dotted_identifier(module) && object.is_none_or(is_dotted_identifier)
+}
+
+/// Whether `value` is one or more Python identifiers separated by dots.
+fn is_dotted_identifier(value: &str) -> bool {
+    value.split('.').all(|part| {
+        let mut chars = part.chars();
+        chars
+            .next()
+            .is_some_and(|first| first == '_' || first.is_alphabetic())
+            && chars.all(|char| char == '_' || char.is_alphanumeric())
+    })
 }
 
 fn quoted_list(items: &[&str]) -> String {

@@ -7,9 +7,17 @@ info:
   env:
     NO_COLOR: "1"
 ---
-success: true
-exit_code: 0
+success: false
+exit_code: 1
 ----- stdout -----
+error[missing-key]: `[project]` must set `version` or list it in `dynamic`
+ --> pyproject.toml:1:2
+  |
+1 | [project]
+  |  ^^^^^^^
+  |
+  = help: add `version = "0.1.0"`, or `dynamic = ["version"]` if your build backend provides it
+
 warning[toml-1-1-syntax]: inline table spans multiple lines, which requires TOML 1.1
  --> pyproject.toml:4:3
   |
@@ -18,6 +26,6 @@ warning[toml-1-1-syntax]: inline table spans multiple lines, which requires TOML
   |
   = help: uv and Ruff accept TOML 1.1, but tomllib in Python 3.14 and earlier rejects it, so build backends that use it (such as hatchling) fail on those versions
 
-Found 1 warning.
+Found 1 error and 1 warning.
 
 ----- stderr -----
