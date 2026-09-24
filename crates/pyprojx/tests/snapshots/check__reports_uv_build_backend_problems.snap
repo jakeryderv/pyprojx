@@ -1,0 +1,40 @@
+---
+source: crates/pyprojx/tests/check.rs
+info:
+  program: pyprojx
+  args:
+    - check
+  env:
+    NO_COLOR: "1"
+---
+success: false
+exit_code: 1
+----- stdout -----
+warning[unknown-key]: unknown key `module-nme` in `[tool.uv.build-backend]`
+  --> pyproject.toml:10:1
+   |
+10 | module-nme = "demo"
+   | ^^^^^^^^^^
+   |
+   = help: did you mean `module-name`? uv_build ignores it
+
+warning[unsupported-feature]: some uv_build versions the project allows do not support `tool.uv.build-backend.namespace`
+  --> pyproject.toml:11:1
+   |
+ 6 | requires = ["uv_build>=0.7,<0.8"]
+   |             -------------------- allows versions without it
+...
+11 | namespace = true
+   | ^^^^^^^^^
+   |
+   = help: uv_build added it in 0.7.13; require `uv_build>=0.7.13` in `[build-system]`
+
+error[invalid-value]: invalid value for `tool.uv.build-backend.source-include`: expected an array of strings
+  --> pyproject.toml:12:18
+   |
+12 | source-include = "data/*"
+   |                  ^^^^^^^^
+
+Found 1 error and 2 warnings.
+
+----- stderr -----

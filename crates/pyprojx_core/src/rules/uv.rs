@@ -5,13 +5,22 @@
 //! error depends on what uv does with it, which the data records: uv rejects
 //! invalid project fields such as `sources`, but only warns about invalid
 //! settings such as `index-url`, and then ignores the file's other settings.
+//!
+//! `[tool.uv.build-backend]` is for `uv_build`, the build backend, which uv
+//! ignores, so it is checked against the `uv_build` releases that
+//! `[build-system]` allows, and reported if the project uses another backend.
+
+use std::ops::Range;
 
 use toml::de::DeTable;
 
 use super::tool::{Checker, Extension};
 use super::{Context, uv_references};
+use crate::backends;
+use crate::diagnostic::{Diagnostic, Rule};
 use crate::document::get;
-use crate::uv::UV;
+use crate::standards::{VersionSet, required_versions};
+use crate::uv::{UV, UV_BUILD};
 
 /// uv's checks beyond options and their values.
 struct UvChecks;
@@ -20,6 +29,15 @@ impl Extension for UvChecks {
     fn skips(&self, path: &str) -> bool {
         // uv ignores the build backend's settings, which `uv_build` reads.
         path == "build-backend"
+    }
+}
+
+/// Checks only `[tool.uv.build-backend]`.
+struct BuildBackendChecks;
+
+impl Extension for BuildBackendChecks {
+    fn skips(&self, path: &str) -> bool {
+        path != "build-backend" && !path.starts_with("build-backend.")
     }
 }
 
@@ -36,8 +54,82 @@ pub(super) fn check(context: &mut Context<'_>, root: &DeTable<'_>) {
     if checker.candidates.is_empty() {
         return;
     }
-    checker.check_table(context, &mut UvChecks, (uv, span), "");
+    checker.check_table(context, &mut UvChecks, (uv, span.clone()), "");
     uv_references::check(context, &checker, root, uv);
+    check_build_backend(context, root, (uv, span));
+}
+
+/// Checks `[tool.uv.build-backend]` against the `uv_build` releases that
+/// `[build-system]` allows, or reports that the project's backend ignores it.
+fn check_build_backend(
+    context: &mut Context<'_>,
+    root: &DeTable<'_>,
+    (uv, span): (&DeTable<'_>, Range<usize>),
+) {
+    let Some((key, _)) = get(uv, "build-backend") else {
+        return;
+    };
+    let build_system = get(root, "build-system").and_then(|(_, table)| table.get_ref().as_table());
+    let backend = build_system
+        .and_then(|table| get(table, "build-backend"))
+        .and_then(|(_, value)| Some((value.get_ref().as_str()?, value.span())));
+    let uv_build = backends::by_name("uv-build").expect("uv_build is a known backend");
+    let uses_uv_build = backend
+        .as_ref()
+        .and_then(|(reference, _)| backends::by_reference(reference))
+        .is_some_and(|data| data.name == uv_build.name);
+    if !uses_uv_build {
+        let diagnostic = match &backend {
+            Some((reference, value)) => Diagnostic::new(
+                Rule::IneffectiveSetting,
+                format!(
+                    "the build backend is `{reference}`, which ignores `[tool.uv.build-backend]`"
+                ),
+                key.span(),
+            )
+            .with_label(value.clone(), "the build backend"),
+            None => Diagnostic::new(
+                Rule::IneffectiveSetting,
+                "without a `build-backend` in `[build-system]`, the build backend is setuptools, which ignores `[tool.uv.build-backend]`",
+                key.span(),
+            ),
+        };
+        context.report(diagnostic.with_help(
+            "only `uv_build` reads these settings; set `build-backend = \"uv_build\"` in `[build-system]` to use it",
+        ));
+        return;
+    }
+
+    // Installers pick the newest release the requirement allows.
+    let requirement = build_system
+        .and_then(|table| get(table, "requires"))
+        .and_then(|(_, requires)| requires.get_ref().as_array())
+        .into_iter()
+        .flatten()
+        .find_map(|entry| {
+            let (name, versions) = required_versions(entry.get_ref().as_str()?)?;
+            (name == uv_build.name).then(|| (versions, entry.span()))
+        });
+    let releases = UV_BUILD.releases;
+    let published = VersionSet::at_least(uv_build.first);
+    let (candidates, source) = match requirement {
+        Some((Some(versions), span)) => (
+            (0..releases.len())
+                .filter(|&index| {
+                    published.contains(releases[index]) && versions.contains(releases[index])
+                })
+                .collect(),
+            Some(span),
+        ),
+        Some((None, span)) => (vec![UV_BUILD.latest()], Some(span)),
+        None => (vec![UV_BUILD.latest()], None),
+    };
+    let checker = Checker::with_candidates(&UV_BUILD, candidates, source);
+    // Nothing to say about releases pyprojx does not know.
+    if checker.candidates.is_empty() {
+        return;
+    }
+    checker.check_table(context, &mut BuildBackendChecks, (uv, span), "");
 }
 
 #[cfg(test)]
@@ -161,10 +253,60 @@ mod tests {
     }
 
     #[test]
-    fn build_backend_is_left_to_uv_build() {
+    fn build_backend_settings_are_for_uv_build() {
+        let project = |backend: &str, body: &str| {
+            let text = format!(
+                "[project]\nname = \"demo\"\nversion = \"1\"\n{backend}[tool.uv.build-backend]\n{body}"
+            );
+            crate::check(text.as_bytes().to_vec())
+                .diagnostics
+                .into_iter()
+                .map(|d| {
+                    (
+                        d.rule.name(),
+                        d.severity(),
+                        d.help.unwrap_or_default(),
+                        text[d.span].to_owned(),
+                    )
+                })
+                .collect::<Vec<_>>()
+        };
+        let uv_build = |version: &str| {
+            format!(
+                "[build-system]\nrequires = [\"uv_build{version}\"]\nbuild-backend = \"uv_build\"\n"
+            )
+        };
+        // `uv_build` ignores unknown keys but rejects invalid values.
+        let found = project(&uv_build(">=0.9,<0.10"), "module-nme = \"demo\"\n");
         assert_eq!(
-            uv(None, "[tool.uv.build-backend]\nmodule-nme = \"demo\"\n"),
+            (found[0].0, found[0].1, found[0].3.as_str()),
+            ("unknown-key", Severity::Warning, "module-nme")
+        );
+        assert_eq!(
+            found[0].2,
+            "did you mean `module-name`? uv_build ignores it"
+        );
+        let found = project(&uv_build(""), "module-root = 1\n");
+        assert_eq!(
+            (found[0].0, found[0].1, found[0].3.as_str()),
+            ("invalid-value", Severity::Error, "1")
+        );
+        assert_eq!(
+            project(&uv_build("==0.9.0"), "module-name = \"demo\"\n"),
             []
+        );
+        // Other backends ignore the settings.
+        let hatchling =
+            "[build-system]\nrequires = [\"hatchling\"]\nbuild-backend = \"hatchling.build\"\n";
+        let found = project(hatchling, "module-name = \"demo\"\n");
+        assert_eq!(
+            (found[0].0, found[0].1, found[0].3.as_str()),
+            ("ineffective-setting", Severity::Warning, "build-backend")
+        );
+        let found = project("", "module-name = \"demo\"\n");
+        assert_eq!(
+            (found[0].0, found[0].3.as_str()),
+            ("ineffective-setting", "build-backend")
         );
     }
 }

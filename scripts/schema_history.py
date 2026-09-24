@@ -392,6 +392,7 @@ def probe(cache: Path, command: list[str], files: dict[str, str]) -> Probe:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             for name, content in files.items():
+                (root / name).parent.mkdir(parents=True, exist_ok=True)
                 (root / name).write_text(content)
             process = subprocess.run(
                 command,
