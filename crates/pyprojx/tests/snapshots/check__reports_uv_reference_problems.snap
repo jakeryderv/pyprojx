@@ -1,0 +1,47 @@
+---
+source: crates/pyprojx/tests/check.rs
+info:
+  program: pyprojx
+  args:
+    - check
+  env:
+    NO_COLOR: "1"
+---
+success: false
+exit_code: 1
+----- stdout -----
+error[invalid-value]: undefined dependency group `test`
+  --> pyproject.toml:10:19
+   |
+10 | default-groups = ["test"]
+   |                   ^^^^^^
+   |
+   = help: `uv sync` fails when a default group does not exist
+
+error[invalid-value]: undefined index `pytorch-cu`
+  --> pyproject.toml:13:19
+   |
+13 | torch = { index = "pytorch-cu" }
+   |                   ^^^^^^^^^^^^
+   |
+   = help: did you mean `pytorch-cpu`? uv fails when a source names an index that `[[tool.uv.index]]` does not declare
+
+warning[ineffective-setting]: `requests` is not a dependency of the project, so uv ignores its source
+  --> pyproject.toml:14:1
+   |
+14 | requests = { git = "https://github.com/psf/requests", tag = "v2.32.0", branch = "main" }
+   | ^^^^^^^^
+   |
+   = help: add it to the project's dependencies, or remove the source
+
+error[invalid-value]: the Git source for `requests` sets `tag` and `branch`
+  --> pyproject.toml:14:12
+   |
+14 | requests = { git = "https://github.com/psf/requests", tag = "v2.32.0", branch = "main" }
+   |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: set only one of `rev`, `tag`, and `branch`
+
+Found 3 errors and 1 warning.
+
+----- stderr -----

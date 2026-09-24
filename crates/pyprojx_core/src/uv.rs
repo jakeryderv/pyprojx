@@ -4,7 +4,7 @@
 //! running uv, by `scripts/update_uv_data.py`.
 
 use crate::tool::Tool;
-use crate::uv_data::{INVALID_VALUES, OPTIONS, RELEASES, REQUIRED, UNKNOWN_KEYS};
+use crate::uv_data::{INVALID_VALUES, OPTIONS, RELEASES, REQUIRED, SOURCE_KINDS, UNKNOWN_KEYS};
 
 /// uv's configuration, `[tool.uv]`.
 pub static UV: Tool = Tool {
@@ -23,6 +23,20 @@ pub static UV: Tool = Tool {
         "uv warns about it and then ignores every other `[tool.uv]` setting too, such as `index-url` and `[[tool.uv.index]]`, though it still reads `sources`",
     ),
 };
+
+/// The first release that rejects two indexes with the same name, found by
+/// running releases; earlier ones accept them.
+pub const DUPLICATE_INDEX_NAMES_REJECTED_SINCE: &str = "0.6.4";
+
+/// The first release that rejects more than one default index, found by
+/// running releases; earlier ones accept them.
+pub const MULTIPLE_DEFAULT_INDEXES_REJECTED_SINCE: &str = "0.10.0";
+
+/// The kinds of `tool.uv.sources` entries in the latest release, by the key
+/// each requires, such as `git`, with the keys each allows.
+pub fn source_kinds() -> &'static [(&'static str, &'static [&'static str])] {
+    SOURCE_KINDS
+}
 
 #[cfg(test)]
 mod tests {

@@ -268,6 +268,13 @@ pub fn required_versions(value: &str) -> Option<(String, Option<VersionSet>)> {
     Some((requirement.name.to_string(), versions))
 }
 
+/// The normalized package name of a requirement, including requirements for a
+/// URL, or `None` if it is invalid.
+pub fn requirement_name(value: &str) -> Option<String> {
+    let requirement = Requirement::<VerbatimUrl>::from_str(value).ok()?;
+    Some(requirement.name.to_string())
+}
+
 /// Checks a project, extra, or group name against the name format and returns
 /// its normalized form.
 pub fn normalize_name(value: &str) -> Result<String, Problem> {

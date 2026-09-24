@@ -185,6 +185,13 @@ reports an error only where uv fails. It also runs uv to find which options uv
 warns are deprecated. Where uv's schema is wrong, such as for `pip.group`, the
 script lists the right type in `NAMED`.
 
+pyprojx also checks the names `[tool.uv]` refers to, such as the index a source
+names or the groups in `default-groups`, and the shape of each source, which
+uv's schema does not describe well enough. These checks are in
+`crates/pyprojx_core/src/rules/uv_references.rs`, each calibrated by running
+uv; where uv's behavior changed, the release it changed in is recorded in
+`crates/pyprojx_core/src/uv.rs`.
+
 ### Trove classifiers
 
 `crates/pyprojx_core/src/trove_data.rs` is generated from the `trove-classifiers`

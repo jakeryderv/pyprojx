@@ -8,8 +8,8 @@
 
 use toml::de::DeTable;
 
-use super::Context;
 use super::tool::{Checker, Extension};
+use super::{Context, uv_references};
 use crate::document::get;
 use crate::uv::UV;
 
@@ -37,6 +37,7 @@ pub(super) fn check(context: &mut Context<'_>, root: &DeTable<'_>) {
         return;
     }
     checker.check_table(context, &mut UvChecks, (uv, span), "");
+    uv_references::check(context, &checker, root, uv);
 }
 
 #[cfg(test)]
@@ -50,7 +51,9 @@ mod tests {
         body: &str,
     ) -> Vec<(&'static str, Severity, String, String, String)> {
         let pin = version.map_or_else(String::new, |v| format!("required-version = \"=={v}\"\n"));
-        let text = format!("[project]\nname = \"demo\"\nversion = \"1\"\n[tool.uv]\n{pin}{body}");
+        let text = format!(
+            "[project]\nname = \"demo\"\nversion = \"1\"\ndependencies = [\"idna\"]\n[tool.uv]\n{pin}{body}"
+        );
         crate::check(text.as_bytes().to_vec())
             .diagnostics
             .into_iter()
