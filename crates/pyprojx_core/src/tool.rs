@@ -18,6 +18,8 @@ pub struct Tool {
     /// How to require a release, with `{version}` for its version, such as
     /// "require `ruff>={version}`".
     pub upgrade: &'static str,
+    /// How to tell pyprojx which version the project uses, when nothing does.
+    pub pin: &'static str,
     /// Known releases, oldest first. Other data refers to them by index.
     pub releases: &'static [&'static str],
     /// Options by path, sorted.

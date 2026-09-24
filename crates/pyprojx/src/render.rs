@@ -28,5 +28,8 @@ pub fn render(diagnostic: &Diagnostic, text: &str, path: &str) -> String {
     if let Some(help) = &diagnostic.help {
         group = group.element(Level::HELP.message(help.as_str()));
     }
+    if let Some(note) = &diagnostic.note {
+        group = group.element(Level::NOTE.message(note.as_str()));
+    }
     Renderer::styled().render(&[group])
 }

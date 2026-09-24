@@ -6,6 +6,7 @@ use toml::de::DeTable;
 
 use crate::diagnostic::{Diagnostic, Rule};
 use crate::document::{Value, describe_type, string_span};
+use crate::lock::Lock;
 use crate::standards::Problem;
 
 mod build_system;
@@ -21,11 +22,13 @@ mod ty;
 mod uv;
 mod uv_references;
 
-/// Checks the standard tables of a valid TOML document.
-pub fn check(root: &DeTable<'_>, text: &str) -> Vec<Diagnostic> {
+/// Checks the standard tables of a valid TOML document, with the versions a
+/// lock file locks, if any.
+pub fn check(root: &DeTable<'_>, text: &str, lock: Option<&Lock>) -> Vec<Diagnostic> {
     let mut context = Context {
         text,
         diagnostics: Vec::new(),
+        lock,
     };
     build_system::check(&mut context, root);
     project::check(&mut context, root);
@@ -41,6 +44,7 @@ pub fn check(root: &DeTable<'_>, text: &str) -> Vec<Diagnostic> {
 struct Context<'t> {
     text: &'t str,
     diagnostics: Vec<Diagnostic>,
+    lock: Option<&'t Lock>,
 }
 
 impl Context<'_> {

@@ -1,10 +1,12 @@
 //! Tool configuration tables, such as `[tool.ruff]`, checked against the tool
 //! releases the project allows.
 //!
-//! The allowed releases come from the tool's requirements in the project's
-//! dependencies, extras, and dependency groups, any of which might be used,
-//! narrowed by a setting such as Ruff's `required-version`, which the tool
-//! enforces. Without either, the latest release is assumed.
+//! The allowed releases are those a lock file locks the tool at, if the
+//! project's requirements still allow them; otherwise, those its requirements
+//! in the project's dependencies, extras, and dependency groups allow, any of
+//! which might be used. A setting such as Ruff's `required-version`, which the
+//! tool enforces, narrows them. Without any of these, the latest release is
+//! assumed.
 
 use std::ops::Range;
 
@@ -21,8 +23,27 @@ pub(super) struct Checker {
     pub tool: &'static Tool,
     /// Indexes into the tool's releases, oldest first.
     pub candidates: Vec<usize>,
-    /// Where the allowed versions are set.
+    /// Where the allowed versions are set in `pyproject.toml`.
     pub source: Option<Range<usize>>,
+    /// Where the allowed versions come from.
+    pub basis: Basis,
+    /// Versions the project uses that pyprojx does not know, such as releases
+    /// newer than its data.
+    pub unknown: Vec<String>,
+}
+
+/// Where the versions a [`Checker`] checks against come from.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) enum Basis {
+    /// The versions a lock file, named here, locks.
+    Locked(String),
+    /// The versions the project's requirements allow. If a lock file locks
+    /// versions they no longer allow, it is named here.
+    Requirements { stale_lock: Option<String> },
+    /// The versions a setting, such as `tool.uv.required-version`, allows.
+    Setting(String),
+    /// Nothing says, so the latest known release is assumed.
+    Latest,
 }
 
 /// Tool-specific checks, called as [`Checker`] walks a table.
@@ -72,22 +93,55 @@ impl Checker {
     ) -> Self {
         let releases = tool.releases;
         let latest = tool.latest();
-        let mut candidates: Option<Vec<usize>> = None;
-        let mut source = None;
-        for (versions, span) in requirement
+        let ranges = requirement
             .map(|name| requirements(root, name))
-            .unwrap_or_default()
+            .unwrap_or_default();
+        let lock = context.lock.filter(|_| requirement.is_some());
+        let locked = match (lock, requirement) {
+            (Some(lock), Some(name)) => lock.versions(name),
+            _ => &[],
+        };
+        // A lock whose versions the requirements no longer allow is out of date.
+        let allowed = |version: &str| {
+            ranges.is_empty()
+                || ranges
+                    .iter()
+                    .any(|(versions, _)| versions.as_ref().is_none_or(|v| v.contains(version)))
+        };
+        let stale = locked.iter().any(|version| !allowed(version));
+        let mut unknown = Vec::new();
+        let (mut candidates, mut source, mut basis) = if let Some(lock) = lock
+            && !locked.is_empty()
+            && !stale
         {
-            source.get_or_insert(span);
-            let candidates = candidates.get_or_insert_default();
-            match versions {
-                // Installers pick the newest release.
-                None => candidates.push(latest),
-                Some(versions) => candidates.extend(
-                    (0..releases.len()).filter(|&index| versions.contains(releases[index])),
-                ),
+            let mut found = Vec::new();
+            for version in locked {
+                match release_index(releases, version) {
+                    Some(index) => found.push(index),
+                    None => unknown.push(version.clone()),
+                }
             }
-        }
+            (Some(found), None, Basis::Locked(lock.name.clone()))
+        } else if !ranges.is_empty() {
+            let mut found = Vec::new();
+            for (versions, _) in &ranges {
+                match versions {
+                    // Installers pick the newest release.
+                    None => found.push(latest),
+                    Some(versions) => found.extend(
+                        (0..releases.len()).filter(|&index| versions.contains(releases[index])),
+                    ),
+                }
+            }
+            let stale_lock = lock.filter(|_| stale).map(|lock| lock.name.clone());
+            (
+                Some(found),
+                ranges.first().map(|(_, span)| span.clone()),
+                Basis::Requirements { stale_lock },
+            )
+        } else {
+            (None, None, Basis::Latest)
+        };
 
         if let Some(key) = required_version
             && let Some((_, required)) = get(table, key)
@@ -99,7 +153,12 @@ impl Checker {
                     // refuses to run unless it matches.
                     let allowed = candidates.get_or_insert_with(|| (0..releases.len()).collect());
                     allowed.retain(|&index| versions.contains(releases[index]));
-                    source = Some(required.span());
+                    if !matches!(basis, Basis::Locked(_)) {
+                        source = Some(required.span());
+                    }
+                    if basis == Basis::Latest {
+                        basis = Basis::Setting(format!("{}.{key}", tool.table));
+                    }
                 }
                 Err(problem) => {
                     let message = format!("invalid `{}.{key}`: {}", tool.table, problem.message);
@@ -114,6 +173,8 @@ impl Checker {
             tool,
             candidates,
             source,
+            basis,
+            unknown,
         }
     }
 
@@ -123,6 +184,7 @@ impl Checker {
         tool: &'static Tool,
         mut candidates: Vec<usize>,
         source: Option<Range<usize>>,
+        basis: Basis,
     ) -> Self {
         candidates.sort_unstable();
         candidates.dedup();
@@ -130,7 +192,97 @@ impl Checker {
             tool,
             candidates,
             source,
+            basis,
+            unknown: Vec::new(),
         }
+    }
+
+    /// Says which releases the checker checks against and where they come from,
+    /// such as "checked against Ruff 0.16.8, locked in uv.lock".
+    pub fn note(&self) -> String {
+        let name = self.tool.name;
+        let versions = self.describe_candidates();
+        match &self.basis {
+            Basis::Locked(file) => format!("checked against {name} {versions}, locked in {file}"),
+            Basis::Requirements { stale_lock } => {
+                let mut note = format!(
+                    "checked against {name} {versions}, which the project's requirements allow"
+                );
+                if let Some(file) = stale_lock {
+                    note.push_str(&format!(
+                        "; {file} locks a version they do not allow, so it looks out of date"
+                    ));
+                }
+                note
+            }
+            Basis::Setting(key) => {
+                format!("checked against {name} {versions}, which `{key}` allows")
+            }
+            Basis::Latest => format!(
+                "checked against {name} {versions}, the latest release pyprojx knows; {}",
+                self.tool.pin
+            ),
+        }
+    }
+
+    /// The candidates in messages, such as "0.16.8", "0.16.7 and 0.16.8", or
+    /// "0.5.0 to 0.16.8".
+    fn describe_candidates(&self) -> String {
+        let releases: Vec<&str> = self
+            .candidates
+            .iter()
+            .map(|&index| self.release(index))
+            .collect();
+        match releases.as_slice() {
+            [] => String::new(),
+            [only] => (*only).to_owned(),
+            [first, second] => format!("{first} and {second}"),
+            [first, .., last] => format!("{first} to {last}"),
+        }
+    }
+
+    /// Adds [`Checker::note`] to the diagnostics reported from `start` on.
+    pub fn annotate(&self, context: &mut Context<'_>, start: usize) {
+        let note = self.note();
+        for diagnostic in &mut context.diagnostics[start..] {
+            diagnostic.note.get_or_insert_with(|| note.clone());
+        }
+    }
+
+    /// Reports that the table at `span`, such as `[tool.ruff]`, was not checked
+    /// because pyprojx knows none of the releases the project allows.
+    pub fn report_unchecked(&self, context: &mut Context<'_>, span: Range<usize>) {
+        let tool = self.tool;
+        let name = tool.name;
+        let table = format!("`[{}]`", tool.table);
+        let known = format!(
+            "pyprojx knows {name} {} to {}",
+            tool.release(0),
+            tool.release(tool.latest())
+        );
+        let (message, help) = if self.unknown.is_empty() {
+            (
+                format!(
+                    "pyprojx knows no {name} version the project allows, so it did not check {table}"
+                ),
+                known,
+            )
+        } else {
+            (
+                format!(
+                    "pyprojx does not know {name} {}, so it did not check {table}",
+                    self.unknown.join(", ")
+                ),
+                format!("{known}; a newer pyprojx may know it"),
+            )
+        };
+        let mut diagnostic = Diagnostic::new(Rule::UnknownVersion, message, span).with_help(help);
+        if let Basis::Locked(file) = &self.basis {
+            diagnostic = diagnostic.with_note(format!("the version is locked in {file}"));
+        } else if let Some(source) = &self.source {
+            diagnostic = diagnostic.with_label(source.clone(), "the versions the project allows");
+        }
+        context.report(diagnostic);
     }
 
     /// The newest allowed release. Checkers run only with candidates.
@@ -508,6 +660,14 @@ impl Checker {
     }
 }
 
+/// The index of the release `version`, compared as versions, not as text.
+fn release_index(releases: &[&str], version: &str) -> Option<usize> {
+    let version = allowed_versions(version).ok()?;
+    releases
+        .iter()
+        .position(|release| version.contains(release))
+}
+
 /// The versions allowed by each requirement on `name` in the project's
 /// dependencies, extras, and dependency groups (`None` for no version
 /// specifiers), with the requirement's span.
@@ -610,4 +770,110 @@ fn mismatch(subject: &str, expected: &str, value: &toml::Spanned<DeValue<'_>>) -
         ),
         value.span(),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{Lock, LockKind, Severity};
+
+    /// A project that requires `requirement` and configures `analyze`, which
+    /// Ruff 0.5 lacks and 0.9 has.
+    fn project(requirement: &str) -> String {
+        format!(
+            "[dependency-groups]\ndev = [\"{requirement}\"]\n[tool.ruff.analyze]\ndetect-string-imports = true\n"
+        )
+    }
+
+    fn lock(versions: &[&str]) -> Lock {
+        let packages: String = versions
+            .iter()
+            .map(|version| format!("[[package]]\nname = \"ruff\"\nversion = \"{version}\"\n"))
+            .collect();
+        Lock::parse(LockKind::Uv, "uv.lock", &format!("version = 1\n{packages}")).unwrap()
+    }
+
+    /// Checks `text` with `lock`, returning (rule, severity, note).
+    fn check(text: &str, lock: Option<&Lock>) -> Vec<(&'static str, Severity, String)> {
+        crate::check_with_lock(text.as_bytes().to_vec(), lock)
+            .diagnostics
+            .into_iter()
+            .map(|d| (d.rule.name(), d.severity(), d.note.unwrap_or_default()))
+            .collect()
+    }
+
+    #[test]
+    fn locked_versions_replace_requirement_ranges() {
+        // The range allows releases without `analyze`; the lock does not.
+        let text = project("ruff>=0.5");
+        let found = check(&text, None);
+        assert_eq!(
+            (found[0].0, found[0].1),
+            ("unsupported-feature", Severity::Warning)
+        );
+        assert_eq!(check(&text, Some(&lock(&["0.16.8"]))), []);
+        // A locked release without it is an error, with the lock named.
+        assert_eq!(
+            check(&text, Some(&lock(&["0.5.0"]))),
+            [(
+                "unsupported-feature",
+                Severity::Error,
+                "checked against Ruff 0.5.0, locked in uv.lock".to_owned()
+            )]
+        );
+        // Every locked version counts.
+        let found = check(&text, Some(&lock(&["0.5.0", "0.16.8"])));
+        assert_eq!(
+            (found[0].1, found[0].2.as_str()),
+            (
+                Severity::Warning,
+                "checked against Ruff 0.5.0 and 0.16.8, locked in uv.lock"
+            )
+        );
+    }
+
+    #[test]
+    fn out_of_date_locks_are_not_used() {
+        // The requirement no longer allows the locked release, which lacks
+        // `analyze`, so the range decides.
+        let found = check(&project("ruff>=0.9"), Some(&lock(&["0.5.0"])));
+        assert_eq!(found, []);
+        let text = format!("{}[tool.ruff]\nline-lenght = 1\n", project("ruff>=0.9"));
+        let found = check(&text, Some(&lock(&["0.5.0"])));
+        assert_eq!(found[0].0, "unknown-key");
+        assert_eq!(
+            found[0].2,
+            "checked against Ruff 0.9.0 to 0.16.8, which the project's requirements allow; uv.lock locks a version they do not allow, so it looks out of date"
+        );
+    }
+
+    #[test]
+    fn unknown_locked_versions_are_reported() {
+        let found = crate::check_with_lock(project("ruff").into_bytes(), Some(&lock(&["99.0.0"])))
+            .diagnostics;
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].rule.name(), "unknown-version");
+        assert_eq!(
+            found[0].message,
+            "pyprojx does not know Ruff 99.0.0, so it did not check `[tool.ruff]`"
+        );
+        assert_eq!(
+            found[0].note.as_deref(),
+            Some("the version is locked in uv.lock")
+        );
+    }
+
+    #[test]
+    fn the_latest_release_is_assumed_out_loud() {
+        let text = "[tool.ruff]\nline-lenght = 1\n";
+        let found = check(text, None);
+        assert!(
+            found[0]
+                .2
+                .contains("the latest release pyprojx knows; add `ruff` to a dependency group"),
+            "{}",
+            found[0].2
+        );
+        // A lock without Ruff says nothing about it.
+        assert_eq!(check(text, Some(&lock(&[]))), found);
+    }
 }

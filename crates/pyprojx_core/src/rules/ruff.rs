@@ -64,10 +64,10 @@ impl Extension for RuffChecks {
 }
 
 pub(super) fn check(context: &mut Context<'_>, root: &DeTable<'_>) {
-    let Some((ruff, span)) = get(root, "tool")
+    let Some((ruff, span, key)) = get(root, "tool")
         .and_then(|(_, tool)| tool.get_ref().as_table())
         .and_then(|tool| get(tool, "ruff"))
-        .and_then(|(_, ruff)| Some((ruff.get_ref().as_table()?, ruff.span())))
+        .and_then(|(key, ruff)| Some((ruff.get_ref().as_table()?, ruff.span(), key.span())))
     else {
         return;
     };
@@ -79,10 +79,11 @@ pub(super) fn check(context: &mut Context<'_>, root: &DeTable<'_>) {
         Some("ruff"),
         Some("required-version"),
     );
-    // Nothing to say about releases pyprojx does not know.
     if checker.candidates.is_empty() {
+        checker.report_unchecked(context, key);
         return;
     }
+    let start = context.diagnostics.len();
     // `lint.preview` overrides `preview` for the linter.
     let flag = |table: &DeTable<'_>| get(table, "preview").and_then(|(_, v)| v.get_ref().as_bool());
     let lint_preview = get(ruff, "lint")
@@ -97,6 +98,7 @@ pub(super) fn check(context: &mut Context<'_>, root: &DeTable<'_>) {
     checker.check_table(context, &mut checks, (ruff, span), "");
     report_moved(context, &checks.moved);
     check_target_version(context, root, &checker, ruff);
+    checker.annotate(context, start);
 }
 
 /// Warns when `target-version` is newer than the oldest Python that
@@ -501,11 +503,13 @@ mod tests {
         assert_eq!(found[0].1, Severity::Error);
         let found = check("[tool.ruff]\nrequired-version = \">=0.5,\"\n");
         assert_eq!(found[0].0, "invalid-value");
-        // Versions pyprojx does not know are not judged.
+        // Versions pyprojx does not know are not judged, but reported.
+        let found = check("[tool.ruff]\nrequired-version = \">=99\"\nline-lenght = 1\n");
         assert_eq!(
-            check("[tool.ruff]\nrequired-version = \">=99\"\nline-lenght = 1\n"),
-            []
+            (found[0].0, found[0].1, found[0].3.as_str()),
+            ("unknown-version", Severity::Warning, "ruff")
         );
+        assert_eq!(found.len(), 1);
     }
 
     /// Checks `[tool.ruff.lint]` settings with Ruff pinned to `version`,

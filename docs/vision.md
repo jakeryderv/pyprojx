@@ -14,8 +14,9 @@ express dependency requirements correctly does not mean resolving dependencies;
 configuring build tools does not mean becoming a build system.
 
 This document describes the intended direction, not implemented functionality.
-pyprojx is in early development: `pyprojx check` reports TOML syntax, encoding, and
-TOML 1.1 compatibility problems, and everything else here is planned.
+pyprojx is in early development: `pyprojx check` validates the standard tables
+and uv, Ruff, and ty settings against the tool versions the project uses (see
+the README's current status), and everything else here is planned.
 
 Think:
 

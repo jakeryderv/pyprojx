@@ -17,6 +17,7 @@ warning[unknown-key]: unknown key `module-nme` in `[tool.uv.build-backend]`
    | ^^^^^^^^^^
    |
    = help: did you mean `module-name`? uv_build ignores it
+   = note: checked against uv_build 0.7.0 to 0.7.22, which `build-system.requires` allows
 
 warning[unsupported-feature]: some uv_build versions the project allows do not support `tool.uv.build-backend.namespace`
   --> pyproject.toml:11:1
@@ -28,12 +29,15 @@ warning[unsupported-feature]: some uv_build versions the project allows do not s
    | ^^^^^^^^^
    |
    = help: uv_build added it in 0.7.13; require `uv_build>=0.7.13` in `[build-system]`
+   = note: checked against uv_build 0.7.0 to 0.7.22, which `build-system.requires` allows
 
 error[invalid-value]: invalid value for `tool.uv.build-backend.source-include`: expected an array of strings
   --> pyproject.toml:12:18
    |
 12 | source-include = "data/*"
    |                  ^^^^^^^^
+   |
+   = note: checked against uv_build 0.7.0 to 0.7.22, which `build-system.requires` allows
 
 Found 1 error and 2 warnings.
 

@@ -1,0 +1,24 @@
+---
+source: crates/pyprojx/tests/check.rs
+info:
+  program: pyprojx
+  args:
+    - check
+  env:
+    NO_COLOR: "1"
+---
+success: false
+exit_code: 1
+----- stdout -----
+error[unsupported-feature]: no Ruff version the project allows supports `tool.ruff.analyze`
+ --> pyproject.toml:8:12
+  |
+8 | [tool.ruff.analyze]
+  |            ^^^^^^^
+  |
+  = help: Ruff added it in 0.6.6; require `ruff>=0.6.6`
+  = note: checked against Ruff 0.5.0, locked in ../../uv.lock
+
+Found 1 error.
+
+----- stderr -----

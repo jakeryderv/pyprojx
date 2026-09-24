@@ -37,20 +37,22 @@ impl Extension for TyChecks {
 }
 
 pub(super) fn check(context: &mut Context<'_>, root: &DeTable<'_>) {
-    let Some((ty, span)) = get(root, "tool")
+    let Some((ty, span, key)) = get(root, "tool")
         .and_then(|(_, tool)| tool.get_ref().as_table())
         .and_then(|tool| get(tool, "ty"))
-        .and_then(|(_, ty)| Some((ty.get_ref().as_table()?, ty.span())))
+        .and_then(|(key, ty)| Some((ty.get_ref().as_table()?, ty.span(), key.span())))
     else {
         return;
     };
     let checker = Checker::new(context, &TY, root, ty, Some("ty"), None);
-    // Nothing to say about releases pyprojx does not know.
     if checker.candidates.is_empty() {
+        checker.report_unchecked(context, key);
         return;
     }
+    let start = context.diagnostics.len();
     checker.check_table(context, &mut TyChecks, (ty, span), "");
     check_python_version_setting(context, root, &checker, ty);
+    checker.annotate(context, start);
 }
 
 /// Checks a rule name, which ty only warns about if it does not know it.
