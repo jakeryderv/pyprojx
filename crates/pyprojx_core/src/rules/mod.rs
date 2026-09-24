@@ -9,6 +9,7 @@ use crate::document::{Value, describe_type, string_span};
 use crate::standards::Problem;
 
 mod build_system;
+mod classifiers;
 mod dependencies;
 mod dependency_groups;
 mod license;

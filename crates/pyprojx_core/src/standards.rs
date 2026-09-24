@@ -148,6 +148,20 @@ pub fn check_glob_pattern(pattern: &str) -> Result<(), &'static str> {
     Ok(())
 }
 
+/// Whether `specifiers` allow some release of Python `major.minor`, or `None`
+/// if they are invalid.
+///
+/// Checks the first, a middle, and a late patch release, so lower bounds such as
+/// `>=3.8.1` still count as supporting 3.8.
+pub fn allows_python_minor(specifiers: &str, major: u64, minor: u64) -> Option<bool> {
+    let specifiers = uv_pep440::VersionSpecifiers::from_str(specifiers).ok()?;
+    Some(
+        [0, 1, 99]
+            .into_iter()
+            .any(|patch| specifiers.contains(&Version::new([major, minor, patch]))),
+    )
+}
+
 /// Checks a project, extra, or group name against the name format and returns
 /// its normalized form.
 pub fn normalize_name(value: &str) -> Result<String, Problem> {

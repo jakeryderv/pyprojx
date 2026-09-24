@@ -1,0 +1,34 @@
+---
+source: crates/pyprojx/tests/check.rs
+info:
+  program: pyprojx
+  args:
+    - check
+  env:
+    NO_COLOR: "1"
+---
+success: false
+exit_code: 1
+----- stdout -----
+error[invalid-value]: unknown classifier `Programming Language :: Pythn :: 3`
+ --> pyproject.toml:6:3
+  |
+6 |   "Programming Language :: Pythn :: 3",
+  |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = help: did you mean `Programming Language :: Python :: 3`?
+
+warning[invalid-value]: classifier says Python 3.10 is supported, but `requires-python` excludes it
+ --> pyproject.toml:7:3
+  |
+4 | requires-python = ">=3.11"
+  |                   -------- `requires-python` set here
+...
+7 |   "Programming Language :: Python :: 3.10",
+  |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = help: remove the classifier or widen `requires-python`
+
+Found 1 error and 1 warning.
+
+----- stderr -----
