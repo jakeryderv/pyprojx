@@ -17,6 +17,7 @@ mod rules;
 pub mod source;
 pub mod standards;
 pub mod toml_version;
+pub mod tool;
 pub mod trove;
 #[rustfmt::skip]
 mod trove_data;

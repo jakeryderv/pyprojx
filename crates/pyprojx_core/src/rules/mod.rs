@@ -16,6 +16,7 @@ mod dependency_groups;
 mod license;
 mod project;
 mod ruff;
+mod tool;
 
 /// Checks the standard tables of a valid TOML document.
 pub fn check(root: &DeTable<'_>, text: &str) -> Vec<Diagnostic> {
