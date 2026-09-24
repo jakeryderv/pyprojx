@@ -219,6 +219,25 @@ impl VersionSet {
     pub fn is_subset_of(&self, other: &Self) -> bool {
         self.0.subset_of(&other.0)
     }
+
+    /// Whether the set contains `version`.
+    pub fn contains(&self, version: &str) -> bool {
+        self.0.contains(&parse_known(version))
+    }
+}
+
+/// The versions that version specifiers, such as `>=0.5, <1`, or a single
+/// version, meaning exactly that version, allow.
+pub fn allowed_versions(value: &str) -> Result<VersionSet, Problem> {
+    if let Ok(version) = Version::from_str(value.trim()) {
+        return Ok(VersionSet(Ranges::from(VersionSpecifier::equals_version(
+            version,
+        ))));
+    }
+    check_specifiers(value)?;
+    let specifiers = uv_pep440::VersionSpecifiers::from_str(value)
+        .map_err(|error| Problem::new(error.to_string(), None))?;
+    Ok(VersionSet(Ranges::from(specifiers)))
 }
 
 /// Versions up to and including `version` and its local versions, as
