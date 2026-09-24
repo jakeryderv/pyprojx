@@ -1,0 +1,29 @@
+---
+source: crates/pyprojx/tests/check.rs
+info:
+  program: pyprojx
+  args:
+    - check
+  env:
+    NO_COLOR: "1"
+---
+success: false
+exit_code: 1
+----- stdout -----
+error[invalid-value]: invalid requirement: Operator >= cannot be used with a wildcard version specifier
+ --> pyproject.toml:2:25
+  |
+2 | requires = ["setuptools >= 77.*"]
+  |                         ^^^^^^^
+
+error[unknown-key]: unknown key `build_backend` in `[build-system]`
+ --> pyproject.toml:3:1
+  |
+3 | build_backend = "setuptools.build_meta"
+  | ^^^^^^^^^^^^^
+  |
+  = help: did you mean `build-backend`?
+
+Found 2 errors.
+
+----- stderr -----

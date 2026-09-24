@@ -86,6 +86,14 @@ git diff crates/pyprojx/tests/snapshots/
 (`cargo insta review`). Commit reviewed snapshots with the change. CI never
 writes snapshots, so a mismatch fails the tests.
 
+### Real-world corpus
+
+`crates/pyprojx_core/tests/corpus/` holds unmodified `pyproject.toml` files from
+well-known projects, listed with their source commits in `SOURCES.md`. A snapshot
+records every diagnostic pyprojx reports on them, and errors fail the test: these
+projects build, so an error is almost certainly a false positive. Review changes
+to that snapshot carefully when adding or changing checks.
+
 ### Check built distributions
 
 pyprojx is distributed as platform-specific wheels containing the binary, plus a

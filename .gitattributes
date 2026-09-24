@@ -1,0 +1,2 @@
+# Real-world corpus files are kept byte-for-byte as upstream publishes them.
+crates/pyprojx_core/tests/corpus/*.toml -text -whitespace

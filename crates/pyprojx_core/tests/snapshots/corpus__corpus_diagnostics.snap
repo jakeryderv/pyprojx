@@ -1,0 +1,5 @@
+---
+source: crates/pyprojx_core/tests/corpus.rs
+expression: report
+---
+20 files, 0 diagnostics

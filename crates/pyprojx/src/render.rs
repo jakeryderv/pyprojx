@@ -15,7 +15,12 @@ pub fn render(diagnostic: &Diagnostic, text: &str, path: &str) -> String {
     let snippet = Snippet::source(text)
         .path(path)
         .fold(true)
-        .annotation(AnnotationKind::Primary.span(diagnostic.span.clone()));
+        .annotation(AnnotationKind::Primary.span(diagnostic.span.clone()))
+        .annotations(diagnostic.labels.iter().map(|label| {
+            AnnotationKind::Context
+                .span(label.span.clone())
+                .label(label.message.as_str())
+        }));
     let mut group = level
         .primary_title(diagnostic.message.as_str())
         .id(diagnostic.rule.name())

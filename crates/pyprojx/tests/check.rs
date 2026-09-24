@@ -127,3 +127,11 @@ fn warns_about_toml_1_1_syntax_without_failing() {
     );
     snapshot!(project.check());
 }
+
+#[test]
+fn reports_build_system_problems() {
+    let project = Project::with_pyproject(
+        b"[build-system]\nrequires = [\"setuptools >= 77.*\"]\nbuild_backend = \"setuptools.build_meta\"\n",
+    );
+    snapshot!(project.check());
+}

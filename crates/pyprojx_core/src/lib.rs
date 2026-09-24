@@ -5,8 +5,11 @@
 //! bindings) can reuse it.
 
 pub mod diagnostic;
+pub mod document;
 pub mod parse;
+mod rules;
 pub mod source;
+pub mod standards;
 pub mod toml_version;
 
 pub use diagnostic::{Diagnostic, Rule, Severity};
@@ -38,6 +41,7 @@ pub fn check(bytes: Vec<u8>) -> Checked {
     diagnostics.extend(parsed.diagnostics);
     if is_valid_toml {
         diagnostics.extend(toml_version::check_toml_1_1_syntax(&text));
+        diagnostics.extend(rules::check(parsed.root.get_ref(), &text));
     }
     diagnostics.sort_by_key(|diagnostic| (diagnostic.span.start, diagnostic.span.end));
     Checked { text, diagnostics }
