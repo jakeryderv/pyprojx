@@ -3,7 +3,11 @@
 //! The data is generated from each release's configuration schema by
 //! `scripts/update_ruff_data.py`.
 
-use crate::ruff_data::{OPTIONS, REDIRECTS, RELEASES, SELECTORS};
+use toml::de::DeValue;
+
+use crate::ruff_data::{
+    DEPRECATED_VALUES, OPTIONS, PYTHON_IN_DEVELOPMENT, REDIRECTS, RELEASES, SELECTORS,
+};
 
 /// What an option holds.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -15,6 +19,86 @@ pub enum OptionKind {
     Value,
 }
 
+/// The values an option accepts, as its schema describes them. Ruff does not
+/// enforce the maximums some schemas give, so they are left out.
+#[derive(Debug, PartialEq, Eq)]
+pub enum ValueType {
+    Any,
+    Bool,
+    Int {
+        min: Option<i64>,
+    },
+    /// An integer or a float.
+    Number,
+    Str,
+    /// One of these strings.
+    Enum(&'static [&'static str]),
+    Array(&'static ValueType),
+    OneOf(&'static [ValueType]),
+    /// A rule selector, which is checked separately.
+    Selector,
+}
+
+impl ValueType {
+    /// Whether `value` has this type.
+    pub fn accepts(&self, value: &DeValue<'_>) -> bool {
+        match self {
+            Self::Any => true,
+            Self::Bool => value.as_bool().is_some(),
+            Self::Int { min } => value
+                .as_integer()
+                .and_then(|integer| i64::from_str_radix(integer.as_str(), integer.radix()).ok())
+                .is_some_and(|integer| min.is_none_or(|min| integer >= min)),
+            Self::Number => matches!(value, DeValue::Integer(_) | DeValue::Float(_)),
+            Self::Str | Self::Selector => value.as_str().is_some(),
+            Self::Enum(variants) => value.as_str().is_some_and(|text| variants.contains(&text)),
+            Self::Array(item) => value
+                .as_array()
+                .is_some_and(|items| items.iter().all(|entry| item.accepts(entry.get_ref()))),
+            Self::OneOf(types) => types.iter().any(|ty| ty.accepts(value)),
+        }
+    }
+
+    /// Describes the type in messages, such as "an integer of at least 1".
+    pub fn describe(&self) -> String {
+        match self {
+            Self::Any => "any value".to_owned(),
+            Self::Bool => "a boolean".to_owned(),
+            Self::Int { min: Some(min) } => format!("an integer of at least {min}"),
+            Self::Int { min: None } => "an integer".to_owned(),
+            Self::Number => "a number".to_owned(),
+            Self::Str => "a string".to_owned(),
+            Self::Selector => "a rule selector".to_owned(),
+            Self::Enum([only]) => format!("`\"{only}\"`"),
+            Self::Enum(variants) => format!(
+                "one of {}",
+                variants
+                    .iter()
+                    .map(|v| format!("`\"{v}\"`"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+            Self::Array(item) => format!("an array of {}", item.describe_plural()),
+            Self::OneOf(types) => types
+                .iter()
+                .map(Self::describe)
+                .collect::<Vec<_>>()
+                .join(" or "),
+        }
+    }
+
+    fn describe_plural(&self) -> String {
+        match self {
+            Self::Bool => "booleans".to_owned(),
+            Self::Int { .. } => "integers".to_owned(),
+            Self::Str => "strings".to_owned(),
+            Self::Selector => "rule selectors".to_owned(),
+            Self::Enum(_) => format!("strings, each {}", self.describe()),
+            other => format!("values, each {}", other.describe()),
+        }
+    }
+}
+
 /// An option, such as `lint.isort.known-first-party`, and the releases that
 /// accept and deprecate it.
 #[derive(Debug)]
@@ -24,6 +108,9 @@ pub struct OptionData {
     /// Whether the values are rule selectors, in a list or, for a map, in
     /// lists for each key.
     pub selectors: bool,
+    /// The type of the option's values, or of each value in a map, in inclusive
+    /// ranges of releases.
+    pub types: &'static [(u16, u16, &'static ValueType)],
     /// Inclusive ranges of indexes into [`releases`].
     pub present: &'static [(u16, u16)],
     pub deprecated: &'static [(u16, u16)],
@@ -38,6 +125,14 @@ impl OptionData {
 
     pub fn is_deprecated(&self, release: usize) -> bool {
         contains(self.deprecated, release)
+    }
+
+    /// The type of the option's values in `release`.
+    pub fn value_type(&self, release: usize) -> Option<&'static ValueType> {
+        self.types
+            .iter()
+            .find(|&&(first, last, _)| (usize::from(first)..=usize::from(last)).contains(&release))
+            .map(|&(_, _, ty)| ty)
     }
 
     /// The first release after `release` that accepts the option.
@@ -198,6 +293,28 @@ pub fn selects_only_preview_rules(selector: &str, release: usize) -> bool {
     rules.peek().is_some() && rules.all(|data| data.is_preview(release))
 }
 
+/// Whether `release` supports the `target-version` value only in preview,
+/// warning that support is under development otherwise. Measured by running
+/// each release.
+pub fn is_python_in_development(value: &str, release: usize) -> bool {
+    PYTHON_IN_DEVELOPMENT.iter().any(|&(python, first, last)| {
+        python == value && (usize::from(first)..=usize::from(last)).contains(&release)
+    })
+}
+
+/// If `release` deprecates `value` for the option at `path`, the first release
+/// that does and what to use instead.
+pub fn deprecated_value(path: &str, value: &str, release: usize) -> Option<(usize, &'static str)> {
+    DEPRECATED_VALUES
+        .iter()
+        .find(|&&(option, deprecated, first, last, _)| {
+            option == path
+                && deprecated == value
+                && (usize::from(first)..=usize::from(last)).contains(&release)
+        })
+        .map(|&(_, _, first, _, message)| (usize::from(first), message))
+}
+
 /// The rule codes and prefixes `release` accepts.
 pub fn codes_in(release: usize) -> Vec<&'static str> {
     SELECTORS
@@ -265,5 +382,10 @@ mod tests {
         assert!(selects_only_preview_rules("AIR003", latest));
         assert!(!selects_only_preview_rules("E", latest));
         assert!(is_lenient_with_preview(latest) && !is_lenient_with_preview(0));
+        assert!(is_python_in_development("py315", latest));
+        assert!(!is_python_in_development("py314", latest));
+        let v0_3 = releases().iter().position(|r| *r == "0.3.0").unwrap();
+        assert!(deprecated_value("output-format", "text", v0_3).is_some());
+        assert!(deprecated_value("output-format", "text", latest).is_none());
     }
 }

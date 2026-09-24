@@ -10,4 +10,5 @@ poetry.toml:45:11: warning[unsupported-feature] poetry-core versions before 2.2.
 pytest.toml:90:1: warning[duplicate-name] dependency group `dev` has the same name as an extra
 requests.toml:9:11: warning[deprecated-metadata] the `project.license` table is deprecated
 requests.toml:30:5: warning[deprecated-metadata] `License ::` classifiers are deprecated
-20 files, 8 diagnostics
+ruff.toml:161:18: warning[invalid-value] `target-version` is Python 3.8, but `requires-python` allows Python 3.7
+20 files, 9 diagnostics

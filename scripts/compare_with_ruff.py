@@ -1,12 +1,13 @@
 # /// script
 # requires-python = ">=3.11"
 # ///
-"""Compare pyprojx's verdicts on Ruff rule selectors with Ruff's own.
+"""Compare pyprojx's verdicts on Ruff configurations with Ruff's own.
 
-For each Ruff release given, checks configurations selecting and ignoring a
-sample of rule selectors, with and without preview, using both that release of
+For each Ruff release given, checks configurations using both that release of
 Ruff and pyprojx (with `required-version` pinned to the release), and reports
-where one fails, warns, or passes and the other does not.
+where one fails, warns, or passes and the other does not. The configurations
+select and ignore a sample of rule selectors, with and without preview, and
+set options to values whose validity differs between releases.
 
 Build pyprojx first. This runs Ruff many times and needs the network:
 
@@ -34,6 +35,23 @@ SPECIAL = [
 ]  # fmt: skip
 
 
+# Settings under `[tool.ruff]`, as TOML lines.
+VALUES = [
+    'target-version = "py313"', 'target-version = "py314"', 'target-version = "py315"',
+    'target-version = "py399"', 'output-format = "text"', 'output-format = "concise"',
+    'output-format = "rdjson"', 'line-length = 0', 'line-length = 400',
+    'line-length = "88"', 'fix = "yes"', "indent-width = 0", 'extend-exclude = "x"',
+    "lint = 1", '[tool.ruff.format]\nquote-style = "preserve"',
+    '[tool.ruff.format]\nquote-style = "Single"', '[tool.ruff.format]\nline-ending = "cr-lf"',
+    "[tool.ruff.lint.pylint]\nmax-args = -1",
+    '[tool.ruff.lint.pylint]\nallow-magic-value-types = ["tuple"]',
+    '[tool.ruff.lint.pydocstyle]\nconvention = "pep8"',
+    '[tool.ruff.analyze]\ndirection = "Dependencies"',
+    '[tool.ruff.analyze]\ndirection = "dependencies"',
+    "[tool.ruff.lint]\nper-file-ignores = 1",
+]  # fmt: skip
+
+
 def verdict(output: str, failed: bool) -> str:
     if failed:
         return "error"
@@ -57,8 +75,7 @@ def ruff(version: str, config: str) -> str:
 
 def pyprojx(binary: Path, version: str, config: str) -> str:
     pinned = config.replace(
-        "[tool.ruff.lint]",
-        f'[tool.ruff]\nrequired-version = "=={version}"\n[tool.ruff.lint]',
+        "[tool.ruff]\n", f'[tool.ruff]\nrequired-version = "=={version}"\n', 1
     )
     with tempfile.TemporaryDirectory() as directory:
         path = Path(directory) / "pyproject.toml"
@@ -86,24 +103,24 @@ def main() -> int:
 
     codes = re.findall(r'selector: "([A-Z][A-Z0-9]*)"', DATA.read_text())
     selectors = random.Random(args.seed).sample(codes, args.sample) + SPECIAL
+    header = '[project]\nname = "demo"\nversion = "1"\n[tool.ruff]\n'
+    configs = [
+        f"{header}[tool.ruff.lint]\n{option} = [{selector!r}]\npreview = {preview}\n"
+        for option in ("select", "ignore")
+        for preview in ("false", "true")
+        for selector in selectors
+    ]
+    configs += [f"{header}{value}\n" for value in VALUES]
     mismatches = total = 0
     for version in args.versions:
-        for option in ("select", "ignore"):
-            for preview in ("false", "true"):
-                for selector in selectors:
-                    config = (
-                        '[project]\nname = "demo"\nversion = "1"\n'
-                        f'[tool.ruff.lint]\n{option} = ["{selector}"]\npreview = {preview}\n'
-                    )
-                    expected = ruff(version, config)
-                    found = pyprojx(args.binary, version, config)
-                    total += 1
-                    if expected != found:
-                        mismatches += 1
-                        print(
-                            f"Ruff {version}, {option} = [{selector!r}], preview = {preview}: "
-                            f"Ruff {expected}, pyprojx {found}"
-                        )
+        for config in configs:
+            expected = ruff(version, config)
+            found = pyprojx(args.binary, version, config)
+            total += 1
+            if expected != found:
+                mismatches += 1
+                settings = config.removeprefix(header).replace("\n", "; ").strip("; ")
+                print(f"Ruff {version}, {settings}: Ruff {expected}, pyprojx {found}")
     print(f"{mismatches} mismatches in {total} comparisons")
     return 1 if mismatches else 0
 

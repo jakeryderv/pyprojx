@@ -76,9 +76,19 @@ def schema(version: Version) -> dict | None:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def options(document: dict) -> dict[str, tuple[str, bool, bool]]:
+@dataclass(frozen=True)
+class Info:
+    kind: str
+    deprecated: bool
+    selectors: bool
+    # The canonical type of the values, from `value_type`; `None` for tables.
+    value_type: tuple | None
+
+
+def options(document: dict) -> dict[str, Info]:
     """Every option path, such as `lint.isort.known-first-party`, with its kind,
-    whether it is deprecated, and whether its values are rule selectors."""
+    whether it is deprecated, whether its values are rule selectors, and the
+    type of its values."""
     definitions = document.get("definitions", {})
 
     def resolve(node: dict) -> dict:
@@ -94,7 +104,56 @@ def options(document: dict) -> dict[str, tuple[str, bool, bool]]:
                     continue
             return node
 
-    found: dict[str, tuple[str, bool, bool]] = {}
+    def value_type(node: dict) -> tuple:
+        """A canonical, hashable type, ignoring how the schema spells it."""
+        while "$ref" in node:
+            name = node["$ref"].rsplit("/", 1)[1]
+            if name == "RuleSelector":
+                return ("selector",)
+            node = definitions[name]
+        for key in ("anyOf", "oneOf", "allOf"):
+            if key in node:
+                members = [c for c in node[key] if c.get("type") != "null"]
+                return combine([value_type(member) for member in members])
+        if "enum" in node:
+            variants = {str(v) for v in node["enum"] if v is not None}
+            return ("enum", tuple(sorted(variants)))
+        if "const" in node:
+            return ("enum", (str(node["const"]),))
+        types = node.get("type")
+        types = [types] if isinstance(types, str) else list(types or [])
+        members = []
+        for name in types:
+            if name == "boolean":
+                members.append(("bool",))
+            elif name == "integer":
+                minimum = node.get("minimum")
+                members.append(("int", None if minimum is None else int(minimum)))
+            elif name == "number":
+                members.append(("number",))
+            elif name == "string":
+                members.append(("str",))
+            elif name == "array":
+                members.append(("array", value_type(node.get("items", {}))))
+            elif name != "null":
+                members.append(("any",))
+        return combine(members) if members else ("any",)
+
+    def combine(members: list[tuple]) -> tuple:
+        flat = []
+        for member in members:
+            flat.extend(member[1] if member[0] == "oneof" else [member])
+        if not flat or ("any",) in flat:
+            return ("any",)
+        variants = tuple(v for m in flat if m[0] == "enum" for v in m[1])
+        rest = [m for m in flat if m[0] != "enum"]
+        # Any string covers the named ones.
+        if variants and ("str",) not in rest:
+            rest.append(("enum", tuple(sorted(set(variants)))))
+        unique = list(dict.fromkeys(rest))
+        return unique[0] if len(unique) == 1 else ("oneof", tuple(unique))
+
+    found: dict[str, Info] = {}
 
     def selects_rules(node: dict) -> bool:
         items = resolve(node).get("items")
@@ -111,12 +170,16 @@ def options(document: dict) -> dict[str, tuple[str, bool, bool]]:
             if isinstance(values, dict):
                 # Keys are names the user chooses, such as file patterns, even
                 # if the schema lists some.
-                found[path] = ("Map", deprecated, selects_rules(values))
+                found[path] = Info(
+                    "Map", deprecated, selects_rules(values), value_type(values)
+                )
             elif "properties" in target:
-                found[path] = ("Table", deprecated, False)
+                found[path] = Info("Table", deprecated, False, None)
                 walk(target, path + ".")
             else:
-                found[path] = ("Value", deprecated, selects_rules(target))
+                found[path] = Info(
+                    "Value", deprecated, selects_rules(target), value_type(prop)
+                )
 
     walk(document, "")
     return found
@@ -212,18 +275,17 @@ def rule_statuses(latest: Version, versions: list[Version]) -> dict[str, str]:
     return statuses
 
 
-def warns_deprecated(version: Version, code: str) -> bool:
-    """Whether a release warns that the rule is deprecated when it is selected."""
-    cache = CACHE / "deprecations.json"
+def probe(version: Version, config: str) -> str:
+    """Ruff's output when a release checks a file with the given configuration,
+    cached across runs."""
+    cache = CACHE / "probes.json"
     known = json.loads(cache.read_text()) if cache.exists() else {}
-    key = f"{code}@{version}"
+    key = f"{version}\n{config}"
     if key not in known:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "a.py").write_text("x = 1\n")
-            (root / "pyproject.toml").write_text(
-                f'[tool.ruff.lint]\nselect = ["{code}"]\n'
-            )
+            (root / "pyproject.toml").write_text(config)
             process = subprocess.run(
                 ["uvx", "--quiet", f"ruff@{version}", "check", "--no-cache", "a.py"],
                 cwd=root,
@@ -231,10 +293,97 @@ def warns_deprecated(version: Version, code: str) -> bool:
                 text=True,
                 check=False,
             )
-        output = process.stdout + process.stderr
-        known[key] = f"`{code}` is deprecated" in output
+        known[key] = process.stdout + process.stderr
         cache.write_text(json.dumps(known, indent=1, sort_keys=True))
     return known[key]
+
+
+def warns_deprecated(version: Version, code: str) -> bool:
+    """Whether a release warns that the rule is deprecated when it is selected."""
+    output = probe(version, f'[tool.ruff.lint]\nselect = ["{code}"]\n')
+    return f"`{code}` is deprecated" in output
+
+
+def first_where(indexes: list[int], predicate) -> int | None:
+    """The first index for which `predicate` holds, assuming it holds from some
+    index on, found by bisecting; `None` if it does not hold for the last."""
+    if not indexes or not predicate(indexes[-1]):
+        return None
+    low, high = -1, len(indexes) - 1  # `predicate` holds at `high`, not at `low`
+    while high - low > 1:
+        middle = (low + high) // 2
+        if predicate(indexes[middle]):
+            high = middle
+        else:
+            low = middle
+    return indexes[high]
+
+
+def python_in_development(
+    found: dict[str, Option], versions: list[Version]
+) -> list[tuple[str, int, int]]:
+    """For each `target-version` value, the releases that warn that support for
+    it is under development, as (value, first, last) index ranges."""
+    target = found["target-version"]
+    windows = []
+    variants = sorted(
+        {v for t in target.types.values() if t[0] == "enum" for v in t[1]}
+    )
+    for variant in variants:
+        present = [i for i, t in sorted(target.types.items()) if variant in t[1]]
+        config = f'[tool.ruff]\ntarget-version = "{variant}"\n'
+
+        def warns(index: int, config: str = config) -> bool:
+            return "is under development" in probe(versions[index], config)
+
+        if not warns(present[0]):
+            continue
+        stable = first_where(present, lambda index: not warns(index))
+        last = present[-1] if stable is None else present[present.index(stable) - 1]
+        windows.append((variant, present[0], last))
+    return windows
+
+
+# Values Ruff rejects although the schema still lists them, and the releases
+# that deprecated them first, found with scripts/compare_with_ruff.py.
+VALUE_OVERRIDES = [
+    # (option, value, deprecated from, rejected from, message)
+    ("output-format", "text", "0.2.0", "0.5.0", 'use "full" or "concise"'),
+]
+
+
+def apply_overrides(
+    found: dict[str, Option], versions: list[Version]
+) -> list[tuple[str, str, int, int, str]]:
+    """Removes values Ruff rejects from their options' types, and returns the
+    deprecation windows of those values."""
+    deprecations = []
+    for path, value, deprecated, rejected, message in VALUE_OVERRIDES:
+        rejected_index = versions.index(Version(rejected))
+        option = found[path]
+        for index, value_type in option.types.items():
+            if index >= rejected_index and value_type[0] == "enum":
+                variants = tuple(v for v in value_type[1] if v != value)
+                option.types[index] = ("enum", variants)
+        first = versions.index(Version(deprecated))
+        deprecations.append((path, value, first, rejected_index - 1, message))
+    return deprecations
+
+
+def merge_case_changes(found: dict[str, Option]) -> None:
+    """Keeps old spellings of values whose case changed, which Ruff accepts."""
+    for option in found.values():
+        previous = None
+        for index in sorted(option.types):
+            current = option.types[index]
+            if (
+                previous is not None
+                and current[0] == previous[0] == "enum"
+                and {v.lower() for v in current[1]} == {v.lower() for v in previous[1]}
+            ):
+                current = ("enum", tuple(sorted(set(current[1]) | set(previous[1]))))
+                option.types[index] = current
+            previous = current
 
 
 def deprecated_since(
@@ -242,16 +391,7 @@ def deprecated_since(
 ) -> int | None:
     """The first release that deprecates a removed rule, found by bisecting the
     releases that accept it; `None` if none did."""
-    if not present or not warns_deprecated(versions[present[-1]], code):
-        return None
-    low, high = -1, len(present) - 1  # `high` warns, `low` does not
-    while high - low > 1:
-        middle = (low + high) // 2
-        if warns_deprecated(versions[present[middle]], code):
-            high = middle
-        else:
-            low = middle
-    return present[high]
+    return first_where(present, lambda index: warns_deprecated(versions[index], code))
 
 
 def redirects(latest: Version) -> dict[str, str]:
@@ -272,6 +412,43 @@ class Option:
     selectors: bool = False
     present: list[int] = field(default_factory=list)
     deprecated: list[int] = field(default_factory=list)
+    # The value type in each release that accepts the option.
+    types: dict[int, tuple] = field(default_factory=dict)
+
+
+def rust_type(value_type: tuple) -> str:
+    """A Rust `ValueType` expression."""
+    kind, *rest = value_type
+    simple = {
+        "any": "Any",
+        "bool": "Bool",
+        "number": "Number",
+        "str": "Str",
+        "selector": "Selector",
+    }
+    if kind in simple:
+        return f"ValueType::{simple[kind]}"
+    if kind == "int":
+        minimum = "None" if rest[0] is None else f"Some({rest[0]})"
+        return f"ValueType::Int {{ min: {minimum} }}"
+    if kind == "enum":
+        return "ValueType::Enum(&[" + ", ".join(map(rust_string, rest[0])) + "])"
+    if kind == "array":
+        return f"ValueType::Array(&{rust_type(rest[0])})"
+    if kind == "oneof":
+        return "ValueType::OneOf(&[" + ", ".join(map(rust_type, rest[0])) + "])"
+    raise ValueError(value_type)
+
+
+def type_runs(types: dict[int, tuple]) -> list[tuple[int, int, tuple]]:
+    """Runs of consecutive releases with the same value type."""
+    runs: list[tuple[int, int, tuple]] = []
+    for index in sorted(types):
+        if runs and runs[-1][1] == index - 1 and runs[-1][2] == types[index]:
+            runs[-1] = (runs[-1][0], index, types[index])
+        else:
+            runs.append((index, index, types[index]))
+    return runs
 
 
 def rust_string(value: str) -> str:
@@ -289,11 +466,13 @@ def generate(
     rules: dict[str, list[int]],
     statuses: dict[str, str],
     redirected: dict[str, str],
+    development: list[tuple[str, int, int]],
+    deprecated_values: list[tuple[str, str, int, int, str]],
 ) -> str:
     lines = [
         "// @generated by scripts/update_ruff_data.py; do not edit.",
         "",
-        "use crate::ruff::{OptionData, OptionKind, RuleStatus, SelectorData};",
+        "use crate::ruff::{OptionData, OptionKind, RuleStatus, SelectorData, ValueType};",
         "",
         "/// Ruff releases, oldest first. Other data refers to them by index.",
         "pub const RELEASES: &[&str] = &[",
@@ -302,15 +481,31 @@ def generate(
     lines += [
         "];",
         "",
+    ]
+    # Value types, shared between options.
+    names: dict[tuple, str] = {}
+    for option in found.values():
+        for value_type in option.types.values():
+            names.setdefault(value_type, f"T{len(names)}")
+    lines += [
+        f"const {name}: ValueType = {rust_type(value_type)};"
+        for value_type, name in names.items()
+    ]
+    lines += [
+        "",
         "/// Options by path, sorted.",
         "pub const OPTIONS: &[OptionData] = &[",
     ]
     for path in sorted(found):
         option = found[path]
+        types = ", ".join(
+            f"({first}, {last}, &{names[value_type]})"
+            for first, last, value_type in type_runs(option.types)
+        )
         message = f"Some({rust_string(messages[path])})" if path in messages else "None"
         lines.append(
             f"    OptionData {{ path: {rust_string(path)}, kind: OptionKind::{option.kind}, "
-            f"selectors: {str(option.selectors).lower()}, "
+            f"selectors: {str(option.selectors).lower()}, types: &[{types}], "
             f"present: {rust_ranges(ranges(option.present))}, "
             f"deprecated: {rust_ranges(ranges(option.deprecated))}, message: {message} }},"
         )
@@ -336,6 +531,28 @@ def generate(
     lines += [
         f"    ({rust_string(old)}, {rust_string(new)}),"
         for old, new in sorted(redirected.items())
+    ]
+    lines += [
+        "];",
+        "",
+        "/// `target-version` values that releases support only in preview, with",
+        "/// inclusive ranges of those releases.",
+        "pub const PYTHON_IN_DEVELOPMENT: &[(&str, u16, u16)] = &[",
+    ]
+    lines += [
+        f"    ({rust_string(value)}, {first}, {last}),"
+        for value, first, last in development
+    ]
+    lines += [
+        "];",
+        "",
+        "/// Option values that releases deprecate: option, value, inclusive range of",
+        "/// releases, and what to use instead.",
+        "pub const DEPRECATED_VALUES: &[(&str, &str, u16, u16, &str)] = &[",
+    ]
+    lines += [
+        f"    ({rust_string(path)}, {rust_string(value)}, {first}, {last}, {rust_string(message)}),"
+        for path, value, first, last, message in deprecated_values
     ]
     lines += ["];", ""]
     return "\n".join(lines)
@@ -363,9 +580,12 @@ def main() -> int:
     for index, document in enumerate(schemas):
         for selector in selectors(document):
             rules.setdefault(selector, []).append(index)
-        for path, (kind, deprecated, selects) in options(document).items():
+        for path, info in options(document).items():
+            kind, deprecated = info.kind, info.deprecated
             option = found.setdefault(path, Option(kind))
-            option.selectors = option.selectors or selects
+            option.selectors = option.selectors or info.selectors
+            if info.value_type is not None:
+                option.types[index] = info.value_type
             if option.kind != kind:
                 print(
                     f"{path} changes kind in {versions[index]}; using {kind}",
@@ -388,6 +608,8 @@ def main() -> int:
             statuses[code] = (
                 f"RuleStatus::Removed {{ deprecated: {deprecated}, removed: {removed} }}"
             )
+    merge_case_changes(found)
+    deprecated_values = apply_overrides(found, versions)
     content = generate(
         versions,
         found,
@@ -395,6 +617,8 @@ def main() -> int:
         rules,
         statuses,
         redirects(latest),
+        python_in_development(found, versions),
+        deprecated_values,
     )
     OUTPUT.write_text(content, encoding="utf-8")
     print(
