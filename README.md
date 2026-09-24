@@ -29,8 +29,9 @@ source linting, or type checking.
 **pyprojx is in early development.** `pyprojx check` reports TOML syntax errors,
 invalid UTF-8, and byte order marks in `pyproject.toml`, warns about TOML 1.1
 syntax that `tomllib` in Python 3.14 and earlier rejects, and validates
-`[build-system]` and `[project]`, including dependencies, extras, and license
-metadata; the other capabilities above are not implemented yet. The
+`[build-system]`, `[project]` (including dependencies, extras, and license
+metadata), and `[dependency-groups]`; the other capabilities above are not
+implemented yet. The
 [0.0.1 release](https://pypi.org/project/pyprojx/0.0.1/) on PyPI is a
 placeholder that predates the command.
 

@@ -1,0 +1,29 @@
+---
+source: crates/pyprojx/tests/check.rs
+info:
+  program: pyprojx
+  args:
+    - check
+  env:
+    NO_COLOR: "1"
+---
+success: false
+exit_code: 1
+----- stdout -----
+error[invalid-value]: included dependency group `tests` does not exist
+ --> pyproject.toml:3:26
+  |
+3 | dev = [{ include-group = "tests" }]
+  |                          ^^^^^^^
+  |
+  = help: did you mean `test`?
+
+error[invalid-value]: dependency groups include each other in a cycle: `docs` -> `lint` -> `docs`
+ --> pyproject.toml:4:27
+  |
+4 | lint = [{ include-group = "docs" }]
+  |                           ^^^^^^
+
+Found 2 errors.
+
+----- stderr -----

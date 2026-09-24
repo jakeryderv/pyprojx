@@ -6,6 +6,7 @@ httpx.toml:19:5: warning[deprecated-metadata] `License ::` classifiers are depre
 matplotlib.toml:5:11: warning[invalid-value] `project.authors` names should not contain commas
 matplotlib.toml:9:11: warning[deprecated-metadata] the `project.license` table is deprecated
 matplotlib.toml:16:5: warning[deprecated-metadata] `License ::` classifiers are deprecated
+pytest.toml:90:1: warning[duplicate-name] dependency group `dev` has the same name as an extra
 requests.toml:9:11: warning[deprecated-metadata] the `project.license` table is deprecated
 requests.toml:30:5: warning[deprecated-metadata] `License ::` classifiers are deprecated
-20 files, 6 diagnostics
+20 files, 7 diagnostics
