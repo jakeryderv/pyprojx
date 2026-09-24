@@ -10,6 +10,9 @@ pub mod backends;
 pub mod diagnostic;
 pub mod document;
 pub mod parse;
+pub mod ruff;
+#[rustfmt::skip]
+mod ruff_data;
 mod rules;
 pub mod source;
 pub mod standards;

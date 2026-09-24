@@ -175,3 +175,11 @@ fn reports_features_the_build_backend_lacks() {
     );
     snapshot!(project.check());
 }
+
+#[test]
+fn reports_ruff_option_problems() {
+    let project = Project::with_pyproject(
+        b"[dependency-groups]\ndev = [\"ruff>=0.5,<0.6\"]\n\n[tool.ruff]\nline-lenght = 88\nselect = [\"E\"]\nignore = [\"E501\"]\n\n[tool.ruff.analyze]\ndetect-string-imports = true\n",
+    );
+    snapshot!(project.check());
+}

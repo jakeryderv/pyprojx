@@ -1,0 +1,44 @@
+---
+source: crates/pyprojx/tests/check.rs
+info:
+  program: pyprojx
+  args:
+    - check
+  env:
+    NO_COLOR: "1"
+---
+success: false
+exit_code: 1
+----- stdout -----
+error[unknown-key]: unknown key `line-lenght` in `[tool.ruff]`
+ --> pyproject.toml:5:1
+  |
+5 | line-lenght = 88
+  | ^^^^^^^^^^^
+  |
+  = help: did you mean `line-length`?
+
+warning[deprecated-option]: linter settings at the top level of `[tool.ruff]` are deprecated
+ --> pyproject.toml:6:1
+  |
+6 | select = ["E"]
+  | ^^^^^^
+7 | ignore = ["E501"]
+  | ------ also a linter setting
+  |
+  = help: move them to `[tool.ruff.lint]`, such as `[tool.ruff.lint] select = [...]`
+
+error[unsupported-feature]: no Ruff version the project allows supports `tool.ruff.analyze`
+ --> pyproject.toml:9:12
+  |
+2 | dev = ["ruff>=0.5,<0.6"]
+  |        ---------------- allows only versions without it
+...
+9 | [tool.ruff.analyze]
+  |            ^^^^^^^
+  |
+  = help: Ruff added it in 0.6.6; require `ruff>=0.6.6`
+
+Found 2 errors and 1 warning.
+
+----- stderr -----

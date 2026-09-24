@@ -122,6 +122,17 @@ the script and to `crates/pyprojx_core/src/backends.rs`. The script refuses to
 write results it cannot verify, such as a feature whose support comes and goes
 across releases; investigate those by hand.
 
+### Ruff data
+
+`crates/pyprojx_core/src/ruff_data.rs` records which Ruff releases accept and
+deprecate each option. It is generated from the configuration schema of every
+release since 0.1.0, which the script caches, so later runs only download new
+releases. Regenerate it after Ruff releases:
+
+```sh
+uv run scripts/update_ruff_data.py
+```
+
 ### Trove classifiers
 
 `crates/pyprojx_core/src/trove_data.rs` is generated from the `trove-classifiers`
