@@ -119,3 +119,11 @@ fn missing_pyproject_is_an_error() {
     let project = Project::new();
     snapshot!(project.check());
 }
+
+#[test]
+fn warns_about_toml_1_1_syntax_without_failing() {
+    let project = Project::with_pyproject(
+        b"[project]\nname = \"demo\"\nauthors = [\n  { name = \"A\",\n    email = \"a@example.com\" },\n]\n",
+    );
+    snapshot!(project.check());
+}

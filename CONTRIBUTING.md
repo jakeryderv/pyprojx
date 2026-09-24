@@ -3,7 +3,8 @@
 pyprojx is in early development. Start with the
 [project vision](docs/vision.md) for its intended scope and
 [decision 0001](docs/decisions/0001-rust-core.md) for why it is written in Rust.
-`pyprojx check` currently reports TOML syntax and encoding problems; most planned
+`pyprojx check` currently reports TOML syntax, encoding, and TOML 1.1 compatibility
+problems; most planned
 features are not yet implemented.
 
 ## Proposing changes

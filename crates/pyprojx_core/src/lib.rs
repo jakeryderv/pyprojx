@@ -7,6 +7,7 @@
 pub mod diagnostic;
 pub mod parse;
 pub mod source;
+pub mod toml_version;
 
 pub use diagnostic::{Diagnostic, Rule, Severity};
 
@@ -32,7 +33,12 @@ pub fn check(bytes: Vec<u8>) -> Checked {
 
     let mut diagnostics: Vec<Diagnostic> =
         source::check_byte_order_mark(&text).into_iter().collect();
-    diagnostics.extend(parse::parse(&text).diagnostics);
+    let parsed = parse::parse(&text);
+    let is_valid_toml = parsed.diagnostics.is_empty();
+    diagnostics.extend(parsed.diagnostics);
+    if is_valid_toml {
+        diagnostics.extend(toml_version::check_toml_1_1_syntax(&text));
+    }
     diagnostics.sort_by_key(|diagnostic| (diagnostic.span.start, diagnostic.span.end));
     Checked { text, diagnostics }
 }

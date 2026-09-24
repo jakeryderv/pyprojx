@@ -1,0 +1,23 @@
+---
+source: crates/pyprojx/tests/check.rs
+info:
+  program: pyprojx
+  args:
+    - check
+  env:
+    NO_COLOR: "1"
+---
+success: true
+exit_code: 0
+----- stdout -----
+warning[toml-1-1-syntax]: inline table spans multiple lines, which requires TOML 1.1
+ --> pyproject.toml:4:3
+  |
+4 |   { name = "A",
+  |   ^
+  |
+  = help: uv and Ruff accept TOML 1.1, but tomllib in Python 3.14 and earlier rejects it, so build backends that use it (such as hatchling) fail on those versions
+
+Found 1 warning.
+
+----- stderr -----

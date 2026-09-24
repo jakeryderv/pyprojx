@@ -9,6 +9,8 @@ pub enum Rule {
     InvalidToml,
     /// The file starts with a UTF-8 byte order mark, which common readers reject.
     ByteOrderMark,
+    /// The file uses syntax that requires TOML 1.1.
+    Toml11Syntax,
 }
 
 impl Rule {
@@ -17,6 +19,7 @@ impl Rule {
         match self {
             Self::InvalidToml => "invalid-toml",
             Self::ByteOrderMark => "byte-order-mark",
+            Self::Toml11Syntax => "toml-1-1-syntax",
         }
     }
 
@@ -24,6 +27,7 @@ impl Rule {
     pub const fn severity(self) -> Severity {
         match self {
             Self::InvalidToml | Self::ByteOrderMark => Severity::Error,
+            Self::Toml11Syntax => Severity::Warning,
         }
     }
 }
