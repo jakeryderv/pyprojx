@@ -191,3 +191,11 @@ fn reports_ruff_rule_selector_problems() {
     );
     snapshot!(project.check());
 }
+
+#[test]
+fn reports_ruff_value_problems() {
+    let project = Project::with_pyproject(
+        b"[project]\nname = \"demo\"\nversion = \"0.1.0\"\nrequires-python = \">=3.10\"\n\n[dependency-groups]\ndev = [\"ruff>=0.12,<0.13\"]\n\n[tool.ruff]\ntarget-version = \"py314\"\nline-length = \"88\"\n\n[tool.ruff.format]\nquote-style = \"Single\"\n",
+    );
+    snapshot!(project.check());
+}

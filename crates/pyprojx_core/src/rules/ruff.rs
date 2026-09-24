@@ -13,7 +13,7 @@ use super::{Context, suggest};
 use crate::diagnostic::{Diagnostic, Rule};
 use crate::document::get;
 use crate::ruff::{self, OptionData, OptionKind, RuleStatus, SelectorData};
-use crate::standards::{VersionSet, allowed_versions, required_versions};
+use crate::standards::{VersionSet, allowed_versions, allows_python_minor, required_versions};
 
 /// The known Ruff releases the project allows, and whether it enables preview.
 struct Target {
@@ -21,7 +21,10 @@ struct Target {
     candidates: Vec<usize>,
     /// Where the allowed versions are set.
     source: Option<Range<usize>>,
+    /// Whether preview is enabled for the linter, which `lint.preview` can
+    /// override, and globally.
     preview: bool,
+    global_preview: bool,
 }
 
 impl Target {
@@ -53,6 +56,49 @@ pub(super) fn check(context: &mut Context<'_>, root: &DeTable<'_>) {
     let mut moved = Vec::new();
     check_table(context, &target, ruff, "", &mut moved);
     report_moved(context, &moved);
+    check_target_version(context, root, ruff);
+}
+
+/// Warns when `target-version` is newer than the oldest Python that
+/// `requires-python` allows, so that Ruff may suggest code it cannot run.
+fn check_target_version(context: &mut Context<'_>, root: &DeTable<'_>, ruff: &DeTable<'_>) {
+    let Some((_, target)) = get(ruff, "target-version") else {
+        return;
+    };
+    let Some(minor) = target
+        .get_ref()
+        .as_str()
+        .and_then(|text| text.strip_prefix("py3"))
+        .and_then(|minor| minor.parse::<u64>().ok())
+    else {
+        return;
+    };
+    let Some((_, requires)) = get(root, "project")
+        .and_then(|(_, project)| project.get_ref().as_table())
+        .and_then(|project| get(project, "requires-python"))
+    else {
+        return;
+    };
+    let Some(specifiers) = requires.get_ref().as_str() else {
+        return;
+    };
+    let Some(oldest) =
+        (7..minor).find(|&older| allows_python_minor(specifiers, 3, older) == Some(true))
+    else {
+        return;
+    };
+    context.report(
+        Diagnostic::new(
+            Rule::InvalidValue,
+            format!("`target-version` is Python 3.{minor}, but `requires-python` allows Python 3.{oldest}"),
+            target.span(),
+        )
+        .with_label(requires.span(), "`requires-python` set here")
+        .with_help(format!(
+            "Ruff may suggest code that needs Python 3.{minor}; set `target-version = \"py3{oldest}\"`, or remove it so that Ruff uses `requires-python`"
+        ))
+        .as_warning(),
+    );
 }
 
 /// Finds the Ruff releases the project allows, reporting an invalid
@@ -98,11 +144,13 @@ fn target(context: &mut Context<'_>, root: &DeTable<'_>, ruff: &DeTable<'_>) -> 
     let lint_preview = get(ruff, "lint")
         .and_then(|(_, lint)| lint.get_ref().as_table())
         .and_then(flag);
-    let preview = lint_preview.or_else(|| flag(ruff)).unwrap_or(false);
+    let global_preview = flag(ruff).unwrap_or(false);
+    let preview = lint_preview.unwrap_or(global_preview);
     Target {
         candidates,
         source,
         preview,
+        global_preview,
     }
 }
 
@@ -181,6 +229,7 @@ fn check_table(
                 report_deprecated(context, option, newest, key.span());
             }
         }
+        check_value(context, target, option, value);
         if option.selectors {
             // `select` and `extend-select` enable rules; the others adjust them.
             let enables = matches!(name, "select" | "extend-select");
@@ -188,11 +237,142 @@ fn check_table(
                 check_selector(context, target, enables, selector, span);
             }
         }
-        if option.kind == OptionKind::Table
-            && let DeValue::Table(table) = value.get_ref()
-        {
-            check_table(context, target, table, &format!("{path}."), moved);
+        if option.kind == OptionKind::Table {
+            match value.get_ref() {
+                DeValue::Table(table) => {
+                    check_table(context, target, table, &format!("{path}."), moved);
+                }
+                _ => context.type_mismatch(&format!("tool.ruff.{path}"), "a table", value),
+            }
         }
+    }
+}
+
+/// Checks an option's value, or each value of a map, against its type in the
+/// allowed releases.
+fn check_value(
+    context: &mut Context<'_>,
+    target: &Target,
+    option: &OptionData,
+    value: &toml::Spanned<DeValue<'_>>,
+) {
+    let values: Vec<&toml::Spanned<DeValue<'_>>> = match (option.kind, value.get_ref()) {
+        (OptionKind::Table, _) => return,
+        (OptionKind::Map, DeValue::Table(map)) => map.values().collect(),
+        (OptionKind::Map, _) => {
+            context.type_mismatch(&format!("tool.ruff.{}", option.path), "a table", value);
+            return;
+        }
+        (OptionKind::Value, _) => vec![value],
+    };
+    let releases = ruff::releases();
+    for value in values {
+        let accepts = |index: usize| {
+            option
+                .value_type(index)
+                .is_none_or(|ty| ty.accepts(value.get_ref()))
+        };
+        let rejecting: Vec<usize> = target
+            .candidates
+            .iter()
+            .copied()
+            .filter(|&index| !accepts(index))
+            .collect();
+        let Some(&first_rejecting) = rejecting.first() else {
+            check_value_history(context, target, option, value);
+            continue;
+        };
+        let expected = option
+            .value_type(target.newest())
+            .or_else(|| option.value_type(first_rejecting))
+            .map_or_else(String::new, ruff::ValueType::describe);
+        let path = &option.path;
+        if rejecting.len() == target.candidates.len() {
+            // Suggest the releases that accept it, if any do.
+            let accepted = (0..releases.len())
+                .filter(|&index| option.is_present(index) && accepts(index))
+                .collect::<Vec<_>>();
+            let mut diagnostic = Diagnostic::new(
+                Rule::InvalidValue,
+                format!("invalid value for `tool.ruff.{path}`: expected {expected}"),
+                value.span(),
+            );
+            if let (Some(&first), Some(&last)) = (accepted.first(), accepted.last()) {
+                let history = if first > first_rejecting {
+                    format!("Ruff accepts it from {}", Target::release(first))
+                } else {
+                    format!("Ruff accepted it until {}", Target::release(last))
+                };
+                diagnostic = diagnostic.with_help(history);
+                if let Some(source) = &target.source {
+                    diagnostic = diagnostic
+                        .with_label(source.clone(), "allows only versions that reject it");
+                }
+            }
+            context.report(diagnostic);
+        } else {
+            let mut diagnostic = Diagnostic::new(
+                Rule::UnsupportedFeature,
+                format!("some Ruff versions the project allows do not accept this value for `tool.ruff.{path}`"),
+                value.span(),
+            )
+            .with_help(format!("Ruff {} expects {}", Target::release(first_rejecting), option.value_type(first_rejecting).map_or_else(String::new, ruff::ValueType::describe)))
+            .as_warning();
+            if let Some(source) = &target.source {
+                diagnostic =
+                    diagnostic.with_label(source.clone(), "allows versions that reject it");
+            }
+            context.report(diagnostic);
+        }
+    }
+}
+
+/// Reports a valid value that allowed releases deprecate, or, for
+/// `target-version`, support only in preview.
+fn check_value_history(
+    context: &mut Context<'_>,
+    target: &Target,
+    option: &OptionData,
+    value: &toml::Spanned<DeValue<'_>>,
+) {
+    let Some(text) = value.get_ref().as_str() else {
+        return;
+    };
+    let path = option.path;
+    let newest = target.newest();
+    if let Some((since, instead)) = ruff::deprecated_value(path, text, newest) {
+        context.report(
+            Diagnostic::new(
+                Rule::DeprecatedSetting,
+                format!(
+                    "`{path} = \"{text}\"` is deprecated since Ruff {}",
+                    Target::release(since)
+                ),
+                value.span(),
+            )
+            .with_help(instead),
+        );
+    }
+    if path == "target-version"
+        && !target.global_preview
+        && let Some(&release) = target
+            .candidates
+            .iter()
+            .rev()
+            .find(|&&index| ruff::is_python_in_development(text, index))
+    {
+        context.report(
+            Diagnostic::new(
+                Rule::UnsupportedFeature,
+                format!(
+                    "Ruff {} supports `{text}` only in preview",
+                    Target::release(release)
+                ),
+                value.span(),
+            )
+            .with_help("Ruff warns that support is under development; set `preview = true` in `[tool.ruff]`, or target an earlier version")
+            .as_warning(),
+        );
     }
 }
 
@@ -735,6 +915,100 @@ mod tests {
         assert_eq!(
             found,
             one("unsupported-feature", Severity::Error, "\"FAST\"")
+        );
+    }
+
+    /// Checks `[tool.ruff]` settings with Ruff pinned to `version`.
+    fn ruff(version: &str, body: &str) -> Vec<(&'static str, Severity, String)> {
+        let text = format!("[tool.ruff]\nrequired-version = \"=={version}\"\n{body}");
+        crate::check(text.as_bytes().to_vec())
+            .diagnostics
+            .into_iter()
+            .map(|d| (d.rule.name(), d.severity(), text[d.span].to_owned()))
+            .collect()
+    }
+
+    #[test]
+    fn value_types() {
+        let valid = "line-length = 400\nfix = true\noutput-format = \"concise\"\n[tool.ruff.format]\nquote-style = \"preserve\"\n[tool.ruff.lint.isort]\nsections = { testing = [\"pytest\"] }\n";
+        assert_eq!(ruff("0.16.8", valid), []);
+        for (body, span) in [
+            ("line-length = 0\n", "0"),
+            ("line-length = \"88\"\n", "\"88\""),
+            ("fix = \"yes\"\n", "\"yes\""),
+            ("extend-exclude = \"x\"\n", "\"x\""),
+            ("target-version = \"py399\"\n", "\"py399\""),
+            ("[tool.ruff.lint.pylint]\nmax-args = -1\n", "-1"),
+            (
+                "[tool.ruff.format]\nquote-style = \"Single\"\n",
+                "\"Single\"",
+            ),
+        ] {
+            assert_eq!(
+                ruff("0.16.8", body),
+                one("invalid-value", Severity::Error, span),
+                "{body}"
+            );
+        }
+        assert_eq!(
+            ruff("0.16.8", "lint = 1\n"),
+            one("invalid-type", Severity::Error, "1")
+        );
+    }
+
+    #[test]
+    fn values_that_change_between_releases() {
+        let py314 = "target-version = \"py314\"\n";
+        assert_eq!(
+            ruff("0.11.0", py314),
+            one("invalid-value", Severity::Error, "\"py314\"")
+        );
+        // Ruff 0.12 supports Python 3.14 only in preview.
+        assert_eq!(
+            ruff("0.12.0", py314),
+            one("unsupported-feature", Severity::Warning, "\"py314\"")
+        );
+        assert_eq!(ruff("0.12.0", &format!("preview = true\n{py314}")), []);
+        assert_eq!(ruff("0.16.8", py314), []);
+
+        let text = "output-format = \"text\"\n";
+        assert_eq!(ruff("0.1.0", text), []);
+        assert_eq!(
+            ruff("0.3.0", text),
+            one("deprecated-setting", Severity::Warning, "\"text\"")
+        );
+        assert_eq!(
+            ruff("0.5.0", text),
+            one("invalid-value", Severity::Error, "\"text\"")
+        );
+
+        // Old spellings stay accepted after a change of case.
+        assert_eq!(
+            ruff(
+                "0.16.8",
+                "[tool.ruff.analyze]\ndirection = \"Dependencies\"\n"
+            ),
+            []
+        );
+    }
+
+    #[test]
+    fn target_version_newer_than_requires_python() {
+        let project = |target: &str| {
+            format!(
+                "[project]\nname = \"demo\"\nversion = \"1\"\nrequires-python = \">=3.10\"\n[tool.ruff]\ntarget-version = \"{target}\"\n"
+            )
+        };
+        assert_eq!(check(&project("py310")), []);
+        assert_eq!(check(&project("py39")), []);
+        let found = check(&project("py312"));
+        assert_eq!(
+            (found[0].0, found[0].1, found[0].2.as_str()),
+            (
+                "invalid-value",
+                Severity::Warning,
+                "`target-version` is Python 3.12, but `requires-python` allows Python 3.10"
+            )
         );
     }
 }

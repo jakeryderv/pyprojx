@@ -1,0 +1,46 @@
+---
+source: crates/pyprojx/tests/check.rs
+info:
+  program: pyprojx
+  args:
+    - check
+  env:
+    NO_COLOR: "1"
+---
+success: false
+exit_code: 1
+----- stdout -----
+warning[unsupported-feature]: Ruff 0.12.5 supports `py314` only in preview
+  --> pyproject.toml:10:18
+   |
+10 | target-version = "py314"
+   |                  ^^^^^^^
+   |
+   = help: Ruff warns that support is under development; set `preview = true` in `[tool.ruff]`, or target an earlier version
+
+warning[invalid-value]: `target-version` is Python 3.14, but `requires-python` allows Python 3.10
+  --> pyproject.toml:10:18
+   |
+ 4 | requires-python = ">=3.10"
+   |                   -------- `requires-python` set here
+...
+10 | target-version = "py314"
+   |                  ^^^^^^^
+   |
+   = help: Ruff may suggest code that needs Python 3.14; set `target-version = "py310"`, or remove it so that Ruff uses `requires-python`
+
+error[invalid-value]: invalid value for `tool.ruff.line-length`: expected an integer of at least 1
+  --> pyproject.toml:11:15
+   |
+11 | line-length = "88"
+   |               ^^^^
+
+error[invalid-value]: invalid value for `tool.ruff.format.quote-style`: expected one of `"double"`, `"preserve"`, `"single"`
+  --> pyproject.toml:14:15
+   |
+14 | quote-style = "Single"
+   |               ^^^^^^^^
+
+Found 2 errors and 2 warnings.
+
+----- stderr -----

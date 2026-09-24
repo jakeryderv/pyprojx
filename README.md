@@ -32,8 +32,8 @@ syntax that `tomllib` in Python 3.14 and earlier rejects, and validates
 `[build-system]`, `[project]` (including dependencies, extras, license metadata,
 and trove classifiers), and `[dependency-groups]`. It also reports features, such
 as license expressions, that the build backend versions allowed by
-`[build-system]` lack, and checks `[tool.ruff]` options and rule selectors against
-the Ruff versions the project allows. The other capabilities above are not implemented
+`[build-system]` lack, and checks `[tool.ruff]` options, values, and rule selectors
+against the Ruff versions the project allows. The other capabilities above are not implemented
 yet.
 
 ```text

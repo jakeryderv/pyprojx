@@ -125,10 +125,13 @@ across releases; investigate those by hand.
 ### Ruff data
 
 `crates/pyprojx_core/src/ruff_data.rs` records which Ruff releases accept each
-option and rule selector, which deprecate each option and rule, and which rules
-are in preview. It is generated from the configuration schema of every release
-since 0.1.0, the latest release's rule metadata, and, for removed rules, the
-release that started warning about them, found by running Ruff. The script
+option, value, and rule selector, which deprecate each option and rule, and
+which rules are in preview. It is generated from the configuration schema of
+every release since 0.1.0 and the latest release's rule metadata. Where Ruff
+behaves differently from its schema, the script runs Ruff to find out when:
+for example, which releases warn about a removed rule before removing it, or
+support a new Python version only in preview. The few differences it cannot
+measure this way are listed in `VALUE_OVERRIDES` in the script. The script
 caches what it downloads and measures, so later runs only fetch new releases.
 Regenerate it after Ruff releases:
 
@@ -136,8 +139,8 @@ Regenerate it after Ruff releases:
 uv run scripts/update_ruff_data.py
 ```
 
-To check the rule selector checks against Ruff itself, build pyprojx and
-compare the two on a sample of selectors across releases:
+To check pyprojx against Ruff itself, build it and compare the two on sample
+configurations across releases; they should agree on which fail, warn, or pass:
 
 ```sh
 cargo build
