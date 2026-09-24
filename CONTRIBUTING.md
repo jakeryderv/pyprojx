@@ -1,9 +1,9 @@
 # Contributing to pyprojx
 
-pyprojx is at the development-stub stage. Start with the
+pyprojx is in early development. Start with the
 [project vision](docs/vision.md) for its intended scope and
 [decision 0001](docs/decisions/0001-rust-core.md) for why it is written in Rust.
-The `pyprojx` command exists but only supports `--help` and `--version`; planned
+`pyprojx check` currently reports TOML syntax and encoding problems; most planned
 features are not yet implemented.
 
 ## Proposing changes
@@ -69,6 +69,21 @@ uv run --locked pre-commit run --all-files
 
 Clippy and tests are deliberately not commit hooks; run them locally before
 pushing.
+
+### Snapshot tests
+
+CLI tests in `crates/pyprojx/tests/` compare command output with
+[insta](https://insta.rs/) snapshots in `crates/pyprojx/tests/snapshots/`. After
+an intentional output change, regenerate and review them:
+
+```sh
+INSTA_UPDATE=always cargo test --workspace
+git diff crates/pyprojx/tests/snapshots/
+```
+
+[`cargo-insta`](https://insta.rs/docs/cli/) offers an interactive alternative
+(`cargo insta review`). Commit reviewed snapshots with the change. CI never
+writes snapshots, so a mismatch fails the tests.
 
 ### Check built distributions
 

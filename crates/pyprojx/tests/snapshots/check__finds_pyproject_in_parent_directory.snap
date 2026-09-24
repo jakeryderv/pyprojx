@@ -1,0 +1,21 @@
+---
+source: crates/pyprojx/tests/check.rs
+info:
+  program: pyprojx
+  args:
+    - check
+  env:
+    NO_COLOR: "1"
+---
+success: false
+exit_code: 1
+----- stdout -----
+error[invalid-toml]: missing value
+ --> ../../pyproject.toml:2:7
+  |
+2 | name =
+  |       ^
+
+Found 1 error.
+
+----- stderr -----

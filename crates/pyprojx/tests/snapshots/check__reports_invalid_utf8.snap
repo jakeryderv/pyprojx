@@ -1,0 +1,23 @@
+---
+source: crates/pyprojx/tests/check.rs
+info:
+  program: pyprojx
+  args:
+    - check
+  env:
+    NO_COLOR: "1"
+---
+success: false
+exit_code: 1
+----- stdout -----
+error[invalid-toml]: invalid UTF-8
+ --> pyproject.toml:2:10
+  |
+2 | name = "d�mo"
+  |          ^
+  |
+  = help: TOML files must be encoded as UTF-8
+
+Found 1 error.
+
+----- stderr -----

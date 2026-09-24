@@ -1,0 +1,22 @@
+---
+source: crates/pyprojx/tests/check.rs
+info:
+  program: pyprojx
+  args:
+    - check
+    - configs/other.toml
+  env:
+    NO_COLOR: "1"
+---
+success: false
+exit_code: 1
+----- stdout -----
+error[invalid-toml]: duplicate key `key`
+ --> configs/other.toml:2:1
+  |
+2 | key = 1
+  | ^^^
+
+Found 1 error.
+
+----- stderr -----

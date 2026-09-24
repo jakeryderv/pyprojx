@@ -1,0 +1,121 @@
+//! Snapshot tests for `pyprojx check`.
+
+use std::fs;
+use std::path::Path;
+use std::process::Command;
+
+use insta_cmd::{assert_cmd_snapshot, get_cargo_bin};
+use tempfile::TempDir;
+
+/// A temporary project directory for running `pyprojx check`.
+struct Project {
+    dir: TempDir,
+}
+
+impl Project {
+    fn new() -> Self {
+        Self {
+            dir: TempDir::new().unwrap(),
+        }
+    }
+
+    fn with_pyproject(contents: &[u8]) -> Self {
+        let project = Self::new();
+        project.write("pyproject.toml", contents);
+        project
+    }
+
+    fn write(&self, path: &str, contents: &[u8]) {
+        let path = self.dir.path().join(path);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(path, contents).unwrap();
+    }
+
+    fn check(&self) -> Command {
+        self.check_in(self.dir.path())
+    }
+
+    fn check_in(&self, cwd: &Path) -> Command {
+        let mut command = Command::new(get_cargo_bin("pyprojx"));
+        command
+            .arg("check")
+            .current_dir(cwd)
+            .env("NO_COLOR", "1")
+            .env_remove("CLICOLOR_FORCE");
+        command
+    }
+}
+
+/// Makes output with paths identical across platforms.
+macro_rules! snapshot {
+    ($command:expr) => {
+        insta::with_settings!({ filters => vec![(r"\\", "/")] }, {
+            assert_cmd_snapshot!($command);
+        });
+    };
+}
+
+#[test]
+fn valid_file_passes() {
+    let project = Project::with_pyproject(b"[project]\nname = \"demo\"\nversion = \"0.1.0\"\n");
+    snapshot!(project.check());
+}
+
+#[test]
+fn empty_file_passes() {
+    let project = Project::with_pyproject(b"");
+    snapshot!(project.check());
+}
+
+#[test]
+fn reports_every_syntax_error_in_order() {
+    let project = Project::with_pyproject(
+        b"[tool.ruff]\nline-length =\nselect = [\"E\" \"F\"]\n\n[project]\nname = \"a\"\nname = \"b\"\n",
+    );
+    snapshot!(project.check());
+}
+
+#[test]
+fn reports_byte_order_mark_with_help() {
+    let project = Project::with_pyproject(b"\xef\xbb\xbf[project]\nname = \"demo\"\n");
+    snapshot!(project.check());
+}
+
+#[test]
+fn reports_invalid_utf8() {
+    let project = Project::with_pyproject(b"[project]\nname = \"d\xffmo\"\n");
+    snapshot!(project.check());
+}
+
+#[test]
+fn finds_pyproject_in_parent_directory() {
+    let project = Project::with_pyproject(b"[project]\nname =\n");
+    project.write("src/pkg/__init__.py", b"");
+    snapshot!(project.check_in(&project.dir.path().join("src/pkg")));
+}
+
+#[test]
+fn checks_explicit_file() {
+    let project = Project::new();
+    project.write("configs/other.toml", b"key = \"value\"\nkey = 1\n");
+    snapshot!(project.check().arg("configs/other.toml"));
+}
+
+#[test]
+fn checks_pyproject_in_explicit_directory() {
+    let project = Project::new();
+    project.write("packages/app/pyproject.toml", b"[project\n");
+    snapshot!(project.check().arg("packages/app"));
+}
+
+#[test]
+fn missing_explicit_file_is_an_error() {
+    let project = Project::new();
+    snapshot!(project.check().arg("missing.toml"));
+}
+
+#[test]
+fn missing_pyproject_is_an_error() {
+    let project = Project::new();
+    snapshot!(project.check());
+}
