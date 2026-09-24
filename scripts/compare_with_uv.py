@@ -8,7 +8,8 @@ and checks them with pyprojx, both pinned to the release with
 `required-version`, and reports where one fails, warns, or passes and the other
 does not. The configurations set options and values whose validity, or uv's
 treatment of them, differs between options and releases. `required-version`
-needs uv 0.5.14 or later.
+needs uv 0.5.14 or later. It then builds a wheel with `uv_build` of the same
+release, through its PEP 517 interface, with `[tool.uv.build-backend]` settings.
 
 Build pyprojx first. This runs uv many times and needs the network:
 
@@ -87,6 +88,19 @@ SETTINGS = [
     "sources = { idna = { marker = 'sys_platform == \"linux\"' } }",
 ]
 
+# Settings under `[tool.uv.build-backend]`, as TOML lines.
+BUILD_SETTINGS = [
+    'module-name = "demo"',
+    'module-nme = "demo"',
+    "module-root = 1",
+    'module-root = "src"',
+    "namespace = true",
+    'source-include = ["x"]',
+    "source-include = 1",
+    'data = { scripts = "scripts" }',
+    'data = { scrpts = "scripts" }',
+    "default-excludes = false",
+]
 # Where pyprojx intentionally disagrees: (setting, uv's verdict, pyprojx's).
 DIFFERENCES = {
     # uv ignores unknown keys in indexes silently; pyprojx warns.
@@ -110,6 +124,10 @@ DIFFERENCES = {
         "ok",
         "warning",
     ),
+    # `uv_build` ignores unknown keys, including options from later releases,
+    # silently; pyprojx warns.
+    ('module-nme = "demo"', "ok", "warning"),
+    ("namespace = true", "ok", "warning"),
 }
 
 
@@ -117,6 +135,16 @@ def verdict(output: str, failed: bool) -> str:
     if failed:
         return "error"
     return "warning" if re.search(r"^warning", output, re.MULTILINE) else "ok"
+
+
+def environment() -> dict[str, str]:
+    """The environment without what `uv run` sets, such as `VIRTUAL_ENV`, which
+    uv warns about when it runs in a project."""
+    return {
+        name: value
+        for name, value in os.environ.items()
+        if name not in ("VIRTUAL_ENV", "UV") and not name.startswith("UV_RUN_")
+    }
 
 
 def uv(version: str, config: str) -> str:
@@ -138,13 +166,27 @@ def uv(version: str, config: str) -> str:
             capture_output=True,
             text=True,
             check=False,
-            # Without what `uv run` sets, such as `VIRTUAL_ENV`, which uv warns
-            # about when it runs in a project.
-            env={
-                name: value
-                for name, value in os.environ.items()
-                if name not in ("VIRTUAL_ENV", "UV") and not name.startswith("UV_RUN_")
-            },
+            env=environment(),
+        )
+    return verdict(process.stdout + process.stderr, process.returncode != 0)
+
+
+def uv_build(version: str, config: str) -> str:
+    backend = f'[build-system]\nrequires = ["uv_build=={version}"]\nbuild-backend = "uv_build"\n'
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        (root / "pyproject.toml").write_text(HEADER + backend + config)
+        (root / "src/demo").mkdir(parents=True)
+        (root / "src/demo/__init__.py").write_text("")
+        (root / "scripts").mkdir()
+        (root / "scripts/demo").write_text("")
+        process = subprocess.run(
+            ["uv", "build", "--force-pep517", "--wheel", "--no-cache"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=False,
+            env=environment(),
         )
     return verdict(process.stdout + process.stderr, process.returncode != 0)
 
@@ -180,6 +222,17 @@ def main() -> int:
             if expected != found and (setting, expected, found) not in DIFFERENCES:
                 mismatches += 1
                 print(f"uv {version}, {setting}: uv {expected}, pyprojx {found}")
+        backend = f'[build-system]\nrequires = ["uv_build=={version}"]\nbuild-backend = "uv_build"\n'
+        for setting in BUILD_SETTINGS:
+            config = f"[tool.uv.build-backend]\n{setting}\n"
+            expected = uv_build(version, config)
+            found = pyprojx(args.binary, backend + config)
+            total += 1
+            if expected != found and (setting, expected, found) not in DIFFERENCES:
+                mismatches += 1
+                print(
+                    f"uv_build {version}, {setting}: uv_build {expected}, pyprojx {found}"
+                )
     print(f"{mismatches} mismatches in {total} comparisons")
     return 1 if mismatches else 0
 

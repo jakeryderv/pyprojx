@@ -117,6 +117,22 @@ impl Checker {
         }
     }
 
+    /// Checks `tool` against `candidates`, indexes into its releases, which the
+    /// project allows at `source`.
+    pub fn with_candidates(
+        tool: &'static Tool,
+        mut candidates: Vec<usize>,
+        source: Option<Range<usize>>,
+    ) -> Self {
+        candidates.sort_unstable();
+        candidates.dedup();
+        Self {
+            tool,
+            candidates,
+            source,
+        }
+    }
+
     /// The newest allowed release. Checkers run only with candidates.
     pub fn newest(&self) -> usize {
         *self

@@ -48,6 +48,8 @@ from schema_history import (
 
 OUTPUT = ROOT / "crates/pyprojx_core/src/uv_data.rs"
 FIRST = Version("0.1.34")
+# The first `uv_build` release; see crates/pyprojx_core/src/backend_data.rs.
+FIRST_UV_BUILD = Version("0.6.6")
 UV_CACHE = CACHE / "uv"
 # The first release with `uv lock`, which reads the project fields of
 # `[tool.uv]` as well as its settings.
@@ -91,6 +93,17 @@ def lock(version: Version, config: str) -> Probe:
     return run(version, config, ["lock", "--offline", "--no-cache"])
 
 
+def build(version: Version, config: str) -> Probe:
+    """Builds a wheel with the `uv_build` release, which reads the
+    `[tool.uv.build-backend]` settings, through its PEP 517 interface."""
+    backend = f'[build-system]\nrequires = ["uv_build=={version}"]\nbuild-backend = "uv_build"\n'
+    return probe(
+        UV_CACHE / "probes.json",
+        ["uv", "build", "--force-pep517", "--wheel", "--no-cache", "--quiet"],
+        {"pyproject.toml": HEADER + backend + config, "src/demo/__init__.py": ""},
+    )
+
+
 def entry(found: dict[str, Option], path: str, extra: str = "") -> str:
     """An inline table for an entry of the array of tables at `path`, with its
     required options and `extra`."""
@@ -124,11 +137,49 @@ def treatment(outcome: Probe) -> str:
     return "Ignores"
 
 
+def backfill_build_backend(found: dict[str, Option], versions: list[Version]) -> None:
+    """Records the `uv_build` releases that read each `build-backend` option
+    before uv's schema describes it, measured by building with an invalid
+    value, which a release that reads the option rejects."""
+    for path, option in found.items():
+        if not path.startswith("build-backend.") or option.kind != "Value":
+            continue
+        first = option.present[0]
+        earlier = [i for i in range(first) if versions[i] >= FIRST_UV_BUILD]
+        config = setting("tool.uv", found, path, INVALID)
+        since = first_where(
+            earlier, lambda i, config=config: build(versions[i], config).status != 0
+        )
+        if since is None:
+            continue
+        print(
+            f"uv_build reads {path} from {versions[since]}, before uv's schema has it"
+        )
+        added = range(since, first)
+        option.present = sorted(set(option.present) | set(added))
+        for index in added:
+            option.types[index] = option.types[first]
+    # A table is present where any option in it is.
+    for path, option in found.items():
+        if path.startswith("build-backend") and option.kind == "Table":
+            inside = [o for p, o in found.items() if p.startswith(path + ".")]
+            option.present = sorted(
+                set().union(*(o.present for o in inside), option.present)
+            )
+
+
+def reader(path: str):
+    """How to find what the reader of the option at `path` does with it."""
+    return build if path.split(".")[0] == "build-backend" else lock
+
+
 def treatments(
     found: dict[str, Option], latest: Version, index: int
 ) -> tuple[dict[str, str], dict[str, str]]:
     """What the latest release does with an unknown key in each table, and with
-    an invalid value for each option, other than rejecting it."""
+    an invalid value for each option, other than rejecting it. uv ignores the
+    `build-backend` settings, which `uv_build` reads, so those are measured by
+    building with `uv_build`."""
     current = {p: o for p, o in found.items() if index in o.present}
     tables = [""] + [p for p, o in current.items() if o.kind in ("Table", "TableArray")]
     unknown, invalid = {}, {}
@@ -140,11 +191,10 @@ def treatments(
             config = setting("tool.uv", found, path, f"[{entry(found, path, key)}]")
         else:
             config = setting("tool.uv", found, path, f"{{ {key} }}")
-        unknown[path] = treatment(lock(latest, config))
+        unknown[path] = treatment(reader(path)(latest, config))
     for path in current:
-        invalid[path] = treatment(
-            lock(latest, setting("tool.uv", found, path, INVALID))
-        )
+        config = setting("tool.uv", found, path, INVALID)
+        invalid[path] = treatment(reader(path)(latest, config))
     return (
         {p: t for p, t in unknown.items() if t != "Rejects"},
         {p: t for p, t in invalid.items() if t != "Rejects"},
@@ -250,6 +300,7 @@ def main() -> int:
         return "unknown field" not in compile_settings(versions[index], config).output
 
     messages = add_aliases(found, versions, accepts)
+    backfill_build_backend(found, versions)
     messages |= deprecations(found, versions)
     unknown, invalid = treatments(found, versions[latest], latest)
     OUTPUT.write_text(

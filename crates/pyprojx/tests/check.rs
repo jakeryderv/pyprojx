@@ -217,6 +217,14 @@ fn reports_uv_reference_problems() {
 }
 
 #[test]
+fn reports_uv_build_backend_problems() {
+    let project = Project::with_pyproject(
+        b"[project]\nname = \"demo\"\nversion = \"0.1.0\"\n\n[build-system]\nrequires = [\"uv_build>=0.7,<0.8\"]\nbuild-backend = \"uv_build\"\n\n[tool.uv.build-backend]\nmodule-nme = \"demo\"\nnamespace = true\nsource-include = \"data/*\"\n",
+    );
+    snapshot!(project.check());
+}
+
+#[test]
 fn reports_ruff_value_problems() {
     let project = Project::with_pyproject(
         b"[project]\nname = \"demo\"\nversion = \"0.1.0\"\nrequires-python = \">=3.10\"\n\n[dependency-groups]\ndev = [\"ruff>=0.12,<0.13\"]\n\n[tool.ruff]\ntarget-version = \"py314\"\nline-length = \"88\"\n\n[tool.ruff.format]\nquote-style = \"Single\"\n",

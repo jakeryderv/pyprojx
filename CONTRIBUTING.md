@@ -185,6 +185,12 @@ reports an error only where uv fails. It also runs uv to find which options uv
 warns are deprecated. Where uv's schema is wrong, such as for `pip.group`, the
 script lists the right type in `NAMED`.
 
+`[tool.uv.build-backend]` is read by `uv_build`, the build backend, which is
+released with uv under the same versions, so pyprojx checks it against the
+`uv_build` releases `[build-system]` allows. The script measures what
+`uv_build` does with those settings by building a wheel with it, and which
+earlier `uv_build` releases read options that uv's schema added later.
+
 pyprojx also checks the names `[tool.uv]` refers to, such as the index a source
 names or the groups in `default-groups`, and the shape of each source, which
 uv's schema does not describe well enough. These checks are in

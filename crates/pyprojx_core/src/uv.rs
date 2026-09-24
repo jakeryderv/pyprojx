@@ -24,6 +24,23 @@ pub static UV: Tool = Tool {
     ),
 };
 
+/// The build backend's settings, `[tool.uv.build-backend]`, which `uv_build`
+/// reads. `uv_build` is released with uv, under the same versions, so it shares
+/// uv's data, in which what happens to invalid settings is measured with
+/// `uv_build`.
+pub static UV_BUILD: Tool = Tool {
+    name: "uv_build",
+    table: "tool.uv",
+    docs: "https://docs.astral.sh/uv/concepts/build-backend/",
+    upgrade: "require `uv_build>={version}` in `[build-system]`",
+    releases: RELEASES,
+    options: OPTIONS,
+    required: REQUIRED,
+    unknown_keys: UNKNOWN_KEYS,
+    invalid_values: INVALID_VALUES,
+    warning: None,
+};
+
 /// The first release that rejects two indexes with the same name, found by
 /// running releases; earlier ones accept them.
 pub const DUPLICATE_INDEX_NAMES_REJECTED_SINCE: &str = "0.6.4";
