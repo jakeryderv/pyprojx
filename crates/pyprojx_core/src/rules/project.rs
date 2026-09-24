@@ -37,7 +37,7 @@ const KEYS: &[&str] = &[
 
 /// Keys that may be set statically and also listed in `dynamic` (PEP 808), in
 /// which case build backends may only append entries.
-const EXTENDABLE_KEYS: &[&str] = &[
+pub(super) const EXTENDABLE_KEYS: &[&str] = &[
     "authors",
     "classifiers",
     "dependencies",
@@ -191,22 +191,21 @@ fn check_dynamic<'v>(
             }
             context.report(diagnostic);
         } else if let Some((key, _)) = get(table, name) {
-            let diagnostic = Diagnostic::new(
-                Rule::InvalidDynamic,
-                format!("`{name}` is set statically and also listed in `project.dynamic`"),
-                key.span(),
-            )
-            .with_label(span.clone(), "listed in `dynamic` here");
-            context.report(if EXTENDABLE_KEYS.contains(name) {
-                // Allowed since PEP 808, but backends have been slow to adopt it.
-                diagnostic
-                    .with_help(format!("PEP 808 (2026) allows a build backend to extend a static `{name}`, but many backends, including hatchling and setuptools as of September 2026, still reject it"))
-                    .as_warning()
-            } else {
-                diagnostic.with_help(format!(
-                    "remove `{name}` from `dynamic` or remove its static value"
-                ))
-            });
+            // PEP 808 allows extending the others, which backends may not
+            // support; the compatibility checks report that.
+            if !EXTENDABLE_KEYS.contains(name) {
+                context.report(
+                    Diagnostic::new(
+                        Rule::InvalidDynamic,
+                        format!("`{name}` is set statically and also listed in `project.dynamic`"),
+                        key.span(),
+                    )
+                    .with_label(span.clone(), "listed in `dynamic` here")
+                    .with_help(format!(
+                        "remove `{name}` from `dynamic` or remove its static value"
+                    )),
+                );
+            }
         }
     }
     entries
@@ -652,32 +651,31 @@ dynamic = ["dependencies"]
                 ("invalid-dynamic", "version"),
                 ("invalid-dynamic", "\"name\""),
                 ("invalid-dynamic", "\"licence\""),
-                ("invalid-dynamic", "dependencies"),
             ]
         );
     }
 
     #[test]
-    fn extending_static_keys_is_a_warning() {
+    fn extending_static_keys_depends_on_the_backend() {
         use crate::Severity;
-        let severities = |text: &str| -> Vec<Severity> {
+        let severities = |text: &str| -> Vec<(&str, Severity)> {
             crate::check(text.as_bytes().to_vec())
                 .diagnostics
                 .iter()
-                .map(crate::Diagnostic::severity)
+                .map(|d| (d.rule.name(), d.severity()))
                 .collect()
         };
         assert_eq!(
             severities(
                 "[project]\nname = \"d\"\nversion = \"1\"\ndependencies = []\ndynamic = [\"dependencies\"]\n"
             ),
-            [Severity::Warning]
+            [("unsupported-feature", Severity::Warning)]
         );
         assert_eq!(
             severities(
                 "[project]\nname = \"d\"\nversion = \"1\"\ndescription = \"x\"\ndynamic = [\"description\"]\n"
             ),
-            [Severity::Error]
+            [("invalid-dynamic", Severity::Error)]
         );
     }
 

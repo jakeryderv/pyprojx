@@ -16,6 +16,12 @@ pub const BACKENDS: &[BackendData] = &[
             FeatureSupport { feature: Feature::LicenseExpression, since: Since::Version { before: "76.1.0", version: "77.0.1" }, fails: true },
             // Supported: 0.7.2 fails, 8.0.3 fails, 20.7.0 fails, 33.1.1 fails, 38.7.0 fails, 41.3.0 fails, 57.5.0 ignored, 60.8.0 ignored, 65.3.0 fails, 68.2.1 fails, 75.3.1 fails, 75.8.1 fails, 75.9.1 fails, 76.0.0 fails, 76.1.0 fails, 77.0.1 yes, 78.0.2 yes, 78.1.1 yes, 79.0.1 yes, 80.1.0 yes, 80.6.0 yes, 80.9.0 yes, 82.0.0 yes, 84.0.0 yes.
             FeatureSupport { feature: Feature::LicenseFiles, since: Since::Version { before: "76.1.0", version: "77.0.1" }, fails: true },
+            // Supported: 0.7.2 fails, 8.2 fails, 21.2.1 fails, 34.3.3 fails, 45.2.0 ignored, 59.3.0 ignored, 67.6.0 fails, 84.0.0 fails.
+            FeatureSupport { feature: Feature::ImportNames, since: Since::Never { from: "0.7.2" }, fails: true },
+            // Supported: 0.7.2 fails, 8.2 fails, 21.2.1 fails, 34.3.3 fails, 45.2.0 ignored, 59.3.0 ignored, 67.6.0 fails, 84.0.0 fails.
+            FeatureSupport { feature: Feature::DynamicExtension, since: Since::Never { from: "0.7.2" }, fails: true },
+            // Supported: 0.7.2 fails, 8.2 fails, 21.2.1 fails, 34.3.3 fails, 45.2.0 ignored, 59.3.0 ignored, 67.6.0 fails, 84.0.0 fails.
+            FeatureSupport { feature: Feature::LicenseClassifiers, since: Since::Never { from: "0.7.2" }, fails: true },
         ],
     },
     BackendData {
@@ -30,6 +36,12 @@ pub const BACKENDS: &[BackendData] = &[
             FeatureSupport { feature: Feature::LicenseExpression, since: Since::Version { before: "1.26.3", version: "1.27.0" }, fails: false },
             // Supported: 0.8.0 fails, 0.13.0 fails, 0.21.0 fails, 1.3.0 fails, 1.8.1 fails, 1.9.0 fails, 1.15.0 fails, 1.21.0 fails, 1.21.1 fails, 1.24.2 fails, 1.26.3 ignored, 1.27.0 yes, 1.28.0 yes, 1.29.0 yes, 1.30.1 yes, 1.31.0 yes, 1.32.0 yes, 1.32.3 yes, 1.32.4 yes.
             FeatureSupport { feature: Feature::LicenseFiles, since: Since::Version { before: "1.26.3", version: "1.27.0" }, fails: false },
+            // Supported: 0.8.0 ignored, 0.13.0 ignored, 0.22.0 ignored, 1.4.1 ignored, 1.8.1 ignored, 1.11.1 ignored, 1.17.0 ignored, 1.21.0 ignored, 1.23.0 ignored, 1.24.2 ignored, 1.29.0 ignored, 1.31.0 ignored, 1.32.0 yes, 1.32.3 yes, 1.32.4 yes.
+            FeatureSupport { feature: Feature::ImportNames, since: Since::Version { before: "1.31.0", version: "1.32.0" }, fails: false },
+            // Supported: 0.8.0 yes, 0.8.2 yes, 0.9.0 yes, 0.11.0 yes, 0.11.1 yes, 0.11.3 yes, 0.12.0 yes, 0.14.0 yes, 0.15.0 fails, 0.16.0 fails, 0.20.1 fails, 0.22.0 fails, 1.3.1 fails, 1.8.1 fails, 1.10.0 fails, 1.15.0 fails, 1.21.1 fails, 1.25.0 fails, 1.32.4 fails.
+            FeatureSupport { feature: Feature::DynamicExtension, since: Since::Never { from: "0.15.0" }, fails: true },
+            // Supported: 0.8.0 yes, 0.14.0 yes, 0.22.0 yes, 1.5.0 yes, 1.12.1 yes, 1.19.0 yes, 1.24.1 yes, 1.32.4 yes.
+            FeatureSupport { feature: Feature::LicenseClassifiers, since: Since::First, fails: false },
         ],
     },
     BackendData {
@@ -44,6 +56,12 @@ pub const BACKENDS: &[BackendData] = &[
             FeatureSupport { feature: Feature::LicenseExpression, since: Since::Version { before: "3.10.1", version: "3.11.0" }, fails: true },
             // Supported: 2.0 fails, 2.1.0 fails, 2.3.0 fails, 3.2.0 ignored, 3.5.0 ignored, 3.5.1 ignored, 3.7.0 ignored, 3.8.0 ignored, 3.10.0 ignored, 3.10.1 ignored, 3.11.0 yes, 3.12.0 yes, 4.0.1 yes, 4.0.2 yes, 4.1.0 yes.
             FeatureSupport { feature: Feature::LicenseFiles, since: Since::Version { before: "3.10.1", version: "3.11.0" }, fails: false },
+            // Supported: 2.0 fails, 2.1.0 fails, 3.0.0 fails, 3.3.0 ignored, 3.5.1 ignored, 3.7.1 ignored, 3.10.0 ignored, 3.12.0 ignored, 4.0.1 yes, 4.0.2 yes, 4.1.0 yes.
+            FeatureSupport { feature: Feature::ImportNames, since: Since::Version { before: "3.12.0", version: "4.0.1" }, fails: false },
+            // Supported: 2.0 fails, 2.1.0 fails, 3.1.0 fails, 3.4.0 fails, 3.7.0 fails, 3.9.0 fails, 3.12.0 fails, 4.1.0 fails.
+            FeatureSupport { feature: Feature::DynamicExtension, since: Since::Never { from: "2.0" }, fails: true },
+            // Supported: 2.0 fails, 2.1.0 fails, 3.1.0 fails, 3.4.0 fails, 3.7.0 fails, 3.9.0 fails, 3.12.0 fails, 4.1.0 fails.
+            FeatureSupport { feature: Feature::LicenseClassifiers, since: Since::Never { from: "2.0" }, fails: true },
         ],
     },
     BackendData {
@@ -58,6 +76,12 @@ pub const BACKENDS: &[BackendData] = &[
             FeatureSupport { feature: Feature::LicenseExpression, since: Since::Version { before: "2.3.3", version: "2.4.1" }, fails: true },
             // Supported: 0.0.0 fails, 2.0.2 fails, 2.0.6 fails, 2.1.1 fails, 2.1.5 fails, 2.1.8 fails, 2.3.0 fails, 2.3.1 fails, 2.3.3 fails, 2.4.1 yes, 2.4.2 yes, 2.4.4 yes, 2.4.5 yes, 2.4.6 yes, 2.4.7 yes, 2.4.9 yes, 2.4.10 yes.
             FeatureSupport { feature: Feature::LicenseFiles, since: Since::Version { before: "2.3.3", version: "2.4.1" }, fails: true },
+            // Supported: 0.0.0 fails, 2.0.5 fails, 2.1.1 ignored, 2.1.6 ignored, 2.2.1 ignored, 2.4.1 ignored, 2.4.5 ignored, 2.4.10 ignored.
+            FeatureSupport { feature: Feature::ImportNames, since: Since::Never { from: "0.0.0" }, fails: false },
+            // Supported: 0.0.0 fails, 2.0.5 fails, 2.1.1 fails, 2.1.6 fails, 2.2.1 fails, 2.4.1 fails, 2.4.5 fails, 2.4.10 fails.
+            FeatureSupport { feature: Feature::DynamicExtension, since: Since::Never { from: "0.0.0" }, fails: true },
+            // Supported: 0.0.0 fails, 2.0.5 fails, 2.1.1 fails, 2.1.6 fails, 2.2.1 fails, 2.4.1 fails, 2.4.5 fails, 2.4.10 fails.
+            FeatureSupport { feature: Feature::LicenseClassifiers, since: Since::Never { from: "0.0.0" }, fails: true },
         ],
     },
     BackendData {
@@ -72,6 +96,12 @@ pub const BACKENDS: &[BackendData] = &[
             FeatureSupport { feature: Feature::LicenseExpression, since: Since::Version { before: "2.1.3", version: "2.2.0" }, fails: false },
             // Supported: 1.0.0 fails, 1.0.4 fails, 1.0.8 fails, 1.3.2 fails, 1.6.0 fails, 1.6.1 fails, 1.8.1 fails, 2.0.1 ignored, 2.1.1 ignored, 2.1.3 ignored, 2.2.0 yes, 2.2.1 yes, 2.3.0 yes, 2.3.1 yes, 2.3.2 yes, 2.4.0 yes, 2.4.1 yes, 2.5.0 yes.
             FeatureSupport { feature: Feature::LicenseFiles, since: Since::Version { before: "2.1.3", version: "2.2.0" }, fails: false },
+            // Supported: 1.0.0 fails, 1.0.5 fails, 1.3.1 fails, 1.5.2 fails, 1.8.1 fails, 2.1.0 ignored, 2.3.0 ignored, 2.5.0 ignored.
+            FeatureSupport { feature: Feature::ImportNames, since: Since::Never { from: "1.0.0" }, fails: false },
+            // Supported: 1.0.0 fails, 1.0.3 fails, 1.0.7 fails, 1.2.0 fails, 1.4.0 fails, 1.5.2 fails, 1.6.1 fails, 1.8.0 fails, 1.9.0 fails, 1.9.1 fails, 2.0.0 yes, 2.1.0 yes, 2.1.1 yes, 2.1.2 yes, 2.2.0 yes, 2.2.1 yes, 2.3.1 yes, 2.4.0 yes, 2.5.0 yes.
+            FeatureSupport { feature: Feature::DynamicExtension, since: Since::Version { before: "1.9.1", version: "2.0.0" }, fails: false },
+            // Supported: 1.0.0 fails, 1.0.3 fails, 1.0.7 fails, 1.2.0 fails, 1.4.0 fails, 1.5.2 fails, 1.6.1 fails, 1.8.0 fails, 1.9.0 fails, 1.9.1 fails, 2.0.0 yes, 2.1.0 yes, 2.1.1 yes, 2.1.2 yes, 2.2.0 yes, 2.2.1 yes, 2.3.1 yes, 2.4.0 yes, 2.5.0 yes.
+            FeatureSupport { feature: Feature::LicenseClassifiers, since: Since::Version { before: "1.9.1", version: "2.0.0" }, fails: false },
         ],
     },
     BackendData {
@@ -86,6 +116,12 @@ pub const BACKENDS: &[BackendData] = &[
             FeatureSupport { feature: Feature::LicenseExpression, since: Since::First, fails: false },
             // Supported: 0.6.6 yes, 0.7.10 yes, 0.8.10 yes, 0.9.7 yes, 0.9.29 yes, 0.11.7 yes, 0.11.30 yes, 0.12.18 yes.
             FeatureSupport { feature: Feature::LicenseFiles, since: Since::First, fails: false },
+            // Supported: 0.6.6 ignored, 0.7.5 ignored, 0.7.22 ignored, 0.8.16 ignored, 0.9.9 ignored, 0.9.18 ignored, 0.9.26 ignored, 0.10.12 ignored, 0.11.13 ignored, 0.11.15 ignored, 0.11.16 ignored, 0.11.17 yes, 0.11.22 yes, 0.11.27 yes, 0.11.32 yes, 0.12.3 yes, 0.12.8 yes, 0.12.13 yes, 0.12.18 yes.
+            FeatureSupport { feature: Feature::ImportNames, since: Since::Version { before: "0.11.16", version: "0.11.17" }, fails: false },
+            // Supported: 0.6.6 fails, 0.7.10 fails, 0.8.10 fails, 0.9.7 fails, 0.9.29 fails, 0.11.7 fails, 0.11.30 fails, 0.12.18 fails.
+            FeatureSupport { feature: Feature::DynamicExtension, since: Since::Never { from: "0.6.6" }, fails: true },
+            // Supported: 0.6.6 yes, 0.7.10 yes, 0.8.10 yes, 0.9.7 yes, 0.9.29 yes, 0.11.7 yes, 0.11.30 yes, 0.12.18 yes.
+            FeatureSupport { feature: Feature::LicenseClassifiers, since: Since::First, fails: false },
         ],
     },
 ];
