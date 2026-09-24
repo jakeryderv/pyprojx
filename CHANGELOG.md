@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.5.0](https://github.com/jakeryderv/pyprojx/compare/v0.4.0...v0.5.0) (2026-09-24)
+
+
+### Features
+
+* check [tool.ty] options, values, and rules against the allowed ty versions ([#26](https://github.com/jakeryderv/pyprojx/issues/26)) ([a60d049](https://github.com/jakeryderv/pyprojx/commit/a60d049ba7430f60aba8f451f6a827133f1adc54))
+* check [tool.uv.build-backend] against the uv_build versions [build-system] allows ([#30](https://github.com/jakeryderv/pyprojx/issues/30)) ([5949266](https://github.com/jakeryderv/pyprojx/commit/59492664c98c86fc1159bf5be999104673656c0d))
+* check [tool.uv] options and values against the allowed uv versions ([#28](https://github.com/jakeryderv/pyprojx/issues/28)) ([77549f2](https://github.com/jakeryderv/pyprojx/commit/77549f239b10f99fbcea146bacb61d2c478a5fc5))
+* check the names [tool.uv] refers to and the shape of its sources ([#29](https://github.com/jakeryderv/pyprojx/issues/29)) ([c9e1283](https://github.com/jakeryderv/pyprojx/commit/c9e1283fa20ce830fb0ce3617caba46243aac767))
+
 ## [0.4.0](https://github.com/jakeryderv/pyprojx/compare/v0.3.0...v0.4.0) (2026-09-24)
 
 
