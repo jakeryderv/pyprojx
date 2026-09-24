@@ -9,12 +9,11 @@ use std::ops::Range;
 
 use toml::de::{DeTable, DeValue};
 
-use super::tool::{Checker, Extension};
+use super::tool::{Checker, Extension, check_python_version};
 use super::{Context, suggest};
 use crate::diagnostic::{Diagnostic, Rule};
 use crate::document::get;
 use crate::ruff::{self, RUFF, RuleStatus, SelectorData};
-use crate::standards::allows_python_minor;
 use crate::tool::OptionData;
 
 /// Ruff's checks beyond options and their values.
@@ -97,12 +96,17 @@ pub(super) fn check(context: &mut Context<'_>, root: &DeTable<'_>) {
     };
     checker.check_table(context, &mut checks, ruff, "");
     report_moved(context, &checks.moved);
-    check_target_version(context, root, ruff);
+    check_target_version(context, root, &checker, ruff);
 }
 
 /// Warns when `target-version` is newer than the oldest Python that
 /// `requires-python` allows, so that Ruff may suggest code it cannot run.
-fn check_target_version(context: &mut Context<'_>, root: &DeTable<'_>, ruff: &DeTable<'_>) {
+fn check_target_version(
+    context: &mut Context<'_>,
+    root: &DeTable<'_>,
+    checker: &Checker,
+    ruff: &DeTable<'_>,
+) {
     let Some((_, target)) = get(ruff, "target-version") else {
         return;
     };
@@ -114,31 +118,13 @@ fn check_target_version(context: &mut Context<'_>, root: &DeTable<'_>, ruff: &De
     else {
         return;
     };
-    let Some((_, requires)) = get(root, "project")
-        .and_then(|(_, project)| project.get_ref().as_table())
-        .and_then(|project| get(project, "requires-python"))
-    else {
-        return;
-    };
-    let Some(specifiers) = requires.get_ref().as_str() else {
-        return;
-    };
-    let Some(oldest) =
-        (7..minor).find(|&older| allows_python_minor(specifiers, 3, older) == Some(true))
-    else {
-        return;
-    };
-    context.report(
-        Diagnostic::new(
-            Rule::InvalidValue,
-            format!("`target-version` is Python 3.{minor}, but `requires-python` allows Python 3.{oldest}"),
-            target.span(),
-        )
-        .with_label(requires.span(), "`requires-python` set here")
-        .with_help(format!(
-            "Ruff may suggest code that needs Python 3.{minor}; set `target-version = \"py3{oldest}\"`, or remove it so that Ruff uses `requires-python`"
-        ))
-        .as_warning(),
+    check_python_version(
+        context,
+        root,
+        checker,
+        ("target-version", target, minor),
+        |minor| format!("py3{minor}"),
+        "Ruff may suggest code that needs",
     );
 }
 
@@ -284,6 +270,9 @@ impl RuffChecks {
         };
 
         let first_lacking = lacking[0];
+        // Ruff rejects removed rules even with preview.
+        let none_rejecting = lacking.len() == checker.candidates.len()
+            && (rejected || matches!(data.status, Some(RuleStatus::Removed { .. })));
         // Ruff ignores removed rules in options that do not enable rules.
         if !enables && data.added_after(first_lacking).is_none() {
             let removed = data
@@ -307,9 +296,8 @@ impl RuffChecks {
                 data.removed_before(first_lacking),
             ),
             span,
-            // Ruff rejects removed rules even with preview.
-            lacking.len() == checker.candidates.len()
-                && (rejected || matches!(data.status, Some(RuleStatus::Removed { .. }))),
+            none_rejecting,
+            none_rejecting,
         );
     }
 

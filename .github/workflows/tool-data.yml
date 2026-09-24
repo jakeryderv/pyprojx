@@ -1,7 +1,8 @@
-name: Ruff data
+name: Tool data
 
-# Regenerates crates/pyprojx_core/src/ruff_data.rs after Ruff releases and opens
-# (or updates) a pull request with the result. See CONTRIBUTING.md, "Ruff data".
+# Regenerates each tool's data, such as crates/pyprojx_core/src/ruff_data.rs,
+# after the tool releases, and opens (or updates) a pull request per tool with
+# the result. See CONTRIBUTING.md, "Tool data".
 on:
   schedule:
     - cron: "17 6 * * *"
@@ -10,19 +11,26 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: ruff-data
-  cancel-in-progress: false
-
-env:
-  BRANCH: bot/ruff-data
-  DATA: crates/pyprojx_core/src/ruff_data.rs
-
 jobs:
   update:
+    name: Update (${{ matrix.name }})
     if: github.repository == 'jakeryderv/pyprojx' && vars.RELEASE_PLEASE_APP_CLIENT_ID != ''
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { tool: ruff, name: Ruff }
+          - { tool: ty, name: ty }
+    concurrency:
+      group: tool-data-${{ matrix.tool }}
+      cancel-in-progress: false
+    env:
+      BRANCH: bot/${{ matrix.tool }}-data
+      DATA: crates/pyprojx_core/src/${{ matrix.tool }}_data.rs
+      SCRIPT: scripts/update_${{ matrix.tool }}_data.py
+      NAME: ${{ matrix.name }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -32,7 +40,7 @@ jobs:
         with:
           version: "0.12.18"
           enable-cache: false
-      - run: uv run scripts/update_ruff_data.py
+      - run: uv run "$SCRIPT"
       - name: Compare with main and the open pull request
         id: diff
         run: |
@@ -69,14 +77,14 @@ jobs:
           id="$(gh api "/users/${bot}" --jq .id)"
           git config user.name "$bot"
           git config user.email "${id}+${bot}@users.noreply.github.com"
-          title="fix: update Ruff data for Ruff $LATEST"
+          title="fix: update $NAME data for $NAME $LATEST"
           git switch --create "$BRANCH"
           git commit --quiet --message "$title" -- "$DATA"
           git push --force "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$BRANCH"
-          body="Regenerated with \`uv run scripts/update_ruff_data.py\` by the [Ruff data workflow](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}). Review the diff for new deprecations and removals before merging."
+          body="Regenerated with \`uv run $SCRIPT\` by the [tool data workflow](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}). Review the diff for new deprecations and removals before merging."
           if gh pr view "$BRANCH" --json state --jq .state 2>/dev/null | grep -qx OPEN; then
             gh pr edit "$BRANCH" --title "$title" --body "$body"
           else
             gh pr create --base main --head "$BRANCH" --title "$title" --body "$body"
           fi
-          echo "Opened or updated the pull request for Ruff $LATEST." >> "$GITHUB_STEP_SUMMARY"
+          echo "Opened or updated the pull request for $NAME $LATEST." >> "$GITHUB_STEP_SUMMARY"

@@ -122,34 +122,54 @@ the script and to `crates/pyprojx_core/src/backends.rs`. The script refuses to
 write results it cannot verify, such as a feature whose support comes and goes
 across releases; investigate those by hand.
 
-### Ruff data
+### Tool data
 
-`crates/pyprojx_core/src/ruff_data.rs` records which Ruff releases accept each
-option, value, and rule selector, which deprecate each option and rule, and
-which rules are in preview. It is generated from the configuration schema of
-every release since 0.1.0 and the latest release's rule metadata. Where Ruff
-behaves differently from its schema, the script runs Ruff to find out when:
-for example, which releases warn about a removed rule before removing it, or
-support a new Python version only in preview. The few differences it cannot
-measure this way are listed in `VALUE_OVERRIDES` in the script. The script
-caches what it downloads and measures, so later runs only fetch new releases.
-The [Ruff data workflow](.github/workflows/ruff-data.yml) regenerates it daily
-and opens a pull request, `bot/ruff-data`, when the result changes. Review the
-diff for new deprecations and removals, and let CI check the rest; a later Ruff
-release replaces the branch, so make any fixes in a separate pull request. To
-regenerate it by hand:
+`crates/pyprojx_core/src/ruff_data.rs` and `ty_data.rs` record which releases of
+Ruff and ty accept each option and value, and which deprecate each option. They
+are generated from the configuration schema of every release, by
+`scripts/update_ruff_data.py` and `scripts/update_ty_data.py`, which share
+`scripts/schema_history.py`. Where a tool behaves differently from its schema,
+the scripts run the tool to find out when: for example, which releases still
+accept an option after its schema drops it, as tools do for renamed options.
+The scripts cache what they download and measure, so later runs only fetch new
+releases.
+
+The [tool data workflow](.github/workflows/tool-data.yml) regenerates the data
+daily and opens a pull request per tool, such as `bot/ruff-data`, when the
+result changes. Review the diff for new deprecations and removals, and let CI
+check the rest; a later release replaces the branch, so make any fixes in a
+separate pull request. To regenerate the data by hand:
 
 ```sh
 uv run scripts/update_ruff_data.py
+uv run scripts/update_ty_data.py
 ```
 
-To check pyprojx against Ruff itself, build it and compare the two on sample
-configurations across releases; they should agree on which fail, warn, or pass:
+To check pyprojx against a tool itself, build it and compare the two on sample
+configurations across releases; they should agree on which fail, warn, or pass,
+except for the differences each script lists:
 
 ```sh
 cargo build
 uv run scripts/compare_with_ruff.py 0.16.8 0.12.0 0.5.0 0.1.0
+uv run scripts/compare_with_ty.py 0.0.83 0.0.60 0.0.30 0.0.2
 ```
+
+#### Ruff
+
+Ruff's data also records which releases accept each rule selector, which
+deprecate each rule, and which rules are in preview, from each release's schema
+and the latest release's rule metadata. The script runs Ruff to find which
+releases warn about a removed rule before removing it, and which support a new
+Python version only in preview. The few differences it cannot measure this way
+are listed in `VALUE_OVERRIDES` in the script.
+
+#### ty
+
+ty's source is in the Ruff repository, which each ty release pins as a
+submodule, so the script reads each release's schema at that commit. ty's data
+also records which releases know each rule; ty warns about rules it does not
+know rather than rejecting them.
 
 ### Trove classifiers
 

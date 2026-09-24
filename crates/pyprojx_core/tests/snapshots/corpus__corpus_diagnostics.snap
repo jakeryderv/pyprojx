@@ -11,4 +11,8 @@ pytest.toml:90:1: warning[duplicate-name] dependency group `dev` has the same na
 requests.toml:9:11: warning[deprecated-metadata] the `project.license` table is deprecated
 requests.toml:30:5: warning[deprecated-metadata] `License ::` classifiers are deprecated
 ruff.toml:161:18: warning[invalid-value] `target-version` is Python 3.8, but `requires-python` allows Python 3.7
-20 files, 9 diagnostics
+tox.toml:250:30: warning[invalid-value] `python-version` is Python 3.14, but `requires-python` allows Python 3.10
+tox.toml:251:7: warning[unsupported-feature] some ty versions the project allows do not support the rule `blanket-ignore-comment`
+tox.toml:253:7: warning[unsupported-feature] some ty versions the project allows do not support the rule `missing-direct-dependency`
+tox.toml:256:63: warning[unsupported-feature] some ty versions the project allows do not support the rule `missing-override-decorator`
+20 files, 13 diagnostics

@@ -12,8 +12,8 @@ use toml::de::{DeTable, DeValue};
 
 use super::{Context, suggest};
 use crate::diagnostic::{Diagnostic, Rule};
-use crate::document::get;
-use crate::standards::{VersionSet, allowed_versions, required_versions};
+use crate::document::{describe_type, get};
+use crate::standards::{VersionSet, allowed_versions, allows_python_minor, required_versions};
 use crate::tool::{OptionData, OptionKind, Tool, ValueType};
 
 /// Checks a tool's table against the releases the project allows.
@@ -158,13 +158,34 @@ impl Checker {
             }
             self.check_value(context, extension, option, value);
             extension.option(context, self, option, value);
-            if option.kind == OptionKind::Table {
-                match value.get_ref() {
-                    DeValue::Table(table) => {
-                        self.check_table(context, extension, table, &format!("{path}."));
-                    }
-                    _ => context.type_mismatch(&format!("{}.{path}", tool.table), "a table", value),
+            let prefix = format!("{path}.");
+            let name = format!("{}.{path}", tool.table);
+            match (option.kind, value.get_ref()) {
+                (OptionKind::Table, DeValue::Table(table)) => {
+                    self.check_table(context, extension, table, &prefix);
                 }
+                (OptionKind::Table, _) => context.type_mismatch(&name, "a table", value),
+                (OptionKind::TableArray, DeValue::Array(entries)) => {
+                    for entry in entries {
+                        match entry.get_ref() {
+                            DeValue::Table(table) => {
+                                self.check_table(context, extension, table, &prefix);
+                            }
+                            other => context.report(Diagnostic::new(
+                                Rule::InvalidType,
+                                format!(
+                                    "entries of `{name}` must be tables, found {}",
+                                    describe_type(other)
+                                ),
+                                entry.span(),
+                            )),
+                        }
+                    }
+                }
+                (OptionKind::TableArray, _) => {
+                    context.type_mismatch(&name, "an array of tables", value);
+                }
+                (OptionKind::Map | OptionKind::Value, _) => {}
             }
         }
     }
@@ -182,7 +203,7 @@ impl Checker {
         let name = tool.name;
         let path = format!("{}.{}", tool.table, option.path);
         let values: Vec<&toml::Spanned<DeValue<'_>>> = match (option.kind, value.get_ref()) {
-            (OptionKind::Table, _) => return,
+            (OptionKind::Table | OptionKind::TableArray, _) => return,
             (OptionKind::Map, DeValue::Table(map)) => map.values().collect(),
             (OptionKind::Map, _) => {
                 context.type_mismatch(&path, "a table", value);
@@ -258,10 +279,20 @@ impl Checker {
         }
     }
 
+    /// The table at `prefix` in messages, such as "`[tool.ruff.lint]`".
     fn table_name(&self, prefix: &str) -> String {
+        let table = self.tool.table;
         match prefix.strip_suffix('.') {
-            Some(table) => format!("`[{}.{table}]`", self.tool.table),
-            None => format!("`[{}]`", self.tool.table),
+            Some(path)
+                if self
+                    .tool
+                    .option(path)
+                    .is_some_and(|option| option.kind == OptionKind::TableArray) =>
+            {
+                format!("`[[{table}.{path}]]`")
+            }
+            Some(path) => format!("`[{table}.{path}]`"),
+            None => format!("`[{table}]`"),
         }
     }
 
@@ -314,11 +345,14 @@ impl Checker {
             (option.added_after(lacking), option.removed_before(lacking)),
             span,
             none_supported,
+            // The tool rejects options it does not know.
+            none_supported,
         );
     }
 
     /// Reports something that some or all allowed releases lack, given when the
-    /// tool added or removed it relative to one of those releases.
+    /// tool added or removed it relative to one of those releases, as an error
+    /// if the tool rejects it.
     pub fn report_missing(
         &self,
         context: &mut Context<'_>,
@@ -326,6 +360,7 @@ impl Checker {
         (added, removed): (Option<usize>, Option<usize>),
         span: Range<usize>,
         none_supported: bool,
+        rejected: bool,
     ) {
         let name = self.tool.name;
         let help = match (added, removed) {
@@ -355,8 +390,7 @@ impl Checker {
         if let Some(source) = &self.source {
             diagnostic = diagnostic.with_label(source.clone(), label);
         }
-        // The tool rejects what it does not know.
-        if !none_supported {
+        if !rejected {
             diagnostic = diagnostic.as_warning();
         }
         context.report(diagnostic);
@@ -425,4 +459,56 @@ fn requirements(root: &DeTable<'_>, name: &str) -> Vec<(Option<VersionSet>, Rang
         }
     }
     found
+}
+
+/// Warns when a tool's Python version setting at `path`, such as Ruff's
+/// `target-version`, names Python 3.`minor`, newer than the oldest Python that
+/// `requires-python` allows. `spell` spells a version for the setting, and
+/// `risk` says what can go wrong, such as "Ruff may suggest code that needs".
+pub(super) fn check_python_version(
+    context: &mut Context<'_>,
+    root: &DeTable<'_>,
+    checker: &Checker,
+    (path, value, minor): (&str, &toml::Spanned<DeValue<'_>>, u64),
+    spell: fn(u64) -> String,
+    risk: &str,
+) {
+    // Invalid values are reported already.
+    let accepted = checker
+        .tool
+        .option(path)
+        .and_then(|option| option.value_type(checker.newest()))
+        .is_some_and(|ty| ty.accepts(value.get_ref()));
+    if !accepted {
+        return;
+    }
+    let Some((_, requires)) = get(root, "project")
+        .and_then(|(_, project)| project.get_ref().as_table())
+        .and_then(|project| get(project, "requires-python"))
+    else {
+        return;
+    };
+    let Some(specifiers) = requires.get_ref().as_str() else {
+        return;
+    };
+    let Some(oldest) =
+        (7..minor).find(|&older| allows_python_minor(specifiers, 3, older) == Some(true))
+    else {
+        return;
+    };
+    let name = checker.tool.name;
+    let setting = path.rsplit('.').next().unwrap_or(path);
+    context.report(
+        Diagnostic::new(
+            Rule::InvalidValue,
+            format!("`{setting}` is Python 3.{minor}, but `requires-python` allows Python 3.{oldest}"),
+            value.span(),
+        )
+        .with_label(requires.span(), "`requires-python` set here")
+        .with_help(format!(
+            "{risk} Python 3.{minor}; set `{setting} = \"{}\"`, or remove it so that {name} uses `requires-python`",
+            spell(oldest)
+        ))
+        .as_warning(),
+    );
 }

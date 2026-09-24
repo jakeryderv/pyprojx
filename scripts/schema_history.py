@@ -161,6 +161,10 @@ def options(document: dict, named: dict[str, tuple] | None = None) -> dict[str, 
             elif "properties" in target:
                 found[path] = Info("Table", deprecated, False, None)
                 walk(target, path + ".")
+            elif "properties" in (entry := resolve(target.get("items") or {})):
+                # An array of tables, such as `[[tool.ty.overrides]]`.
+                found[path] = Info("TableArray", deprecated, False, None)
+                walk(entry, path + ".")
             else:
                 found[path] = Info(
                     "Value", deprecated, selects_rules(target), value_type(prop)
@@ -222,6 +226,88 @@ def merge_case_changes(found: dict[str, Option]) -> None:
                 current = ("enum", tuple(sorted(set(current[1]) | set(previous[1]))))
                 option.types[index] = current
             previous = current
+
+
+def example(value_type: tuple | None, kind: str) -> str:
+    """A TOML value an option of this type and kind accepts."""
+    if kind in ("Table", "Map"):
+        return "{}"
+    if kind == "TableArray":
+        return "[]"
+    name, *rest = value_type or ("any",)
+    if name == "bool":
+        return "true"
+    if name == "int":
+        return str(rest[0] or 1)
+    if name == "number":
+        return "1"
+    if name == "enum":
+        return json.dumps(rest[0][0])
+    if name == "array":
+        return f"[{example(rest[0], 'Value')}]"
+    if name == "oneof":
+        return example(rest[0][0], "Value")
+    if name == "selector":
+        return '"E"'
+    return '"x"'
+
+
+def setting(table: str, found: dict[str, Option], path: str, value: str) -> str:
+    """TOML setting the option at `path` in `table`, such as `tool.ty`, to
+    `value`, inside an inline table for options in arrays of tables."""
+    parts = path.split(".")
+    for end in range(len(parts) - 1, 0, -1):
+        parent = ".".join(parts[:end])
+        if found.get(parent) and found[parent].kind == "TableArray":
+            inner = setting(table, found, ".".join(parts[end:]), value).split("\n", 1)[
+                1
+            ]
+            return setting(table, found, parent, f"[{{ {inner.strip()} }}]")
+    return f"[{table}]\n{path} = {value}\n"
+
+
+def add_aliases(
+    found: dict[str, Option],
+    versions: list[Version],
+    accepts: Callable[[int, str], bool],
+) -> dict[str, str]:
+    """Measures which releases still accept options after they leave the
+    schema, as tools do for renamed options, and records those releases as
+    accepting and deprecating them. `accepts(index, path)` tells whether a
+    release accepts the option at `path`. Returns the new names of renamed
+    options, as deprecation messages."""
+    latest = len(versions) - 1
+    messages = {}
+    for path, option in found.items():
+        last = option.present[-1]
+        if last == latest:
+            continue
+        later = list(range(last + 1, latest + 1))
+        rejecting = first_where(
+            later, lambda index, path=path: not accepts(index, path)
+        )
+        accepting = later if rejecting is None else later[: later.index(rejecting)]
+        if not accepting:
+            continue
+        print(
+            f"{path} is accepted until {versions[accepting[-1]]} after leaving the schema"
+        )
+        last_type = option.types.get(last)
+        for index in accepting:
+            option.present.append(index)
+            option.deprecated.append(index)
+            if last_type is not None:
+                option.types[index] = last_type
+        parent, _, _ = path.rpartition(".")
+        renamed = [
+            other
+            for other, data in found.items()
+            if other.rpartition(".")[0] == parent and data.present[0] == last + 1
+        ]
+        if len(renamed) == 1:
+            name = renamed[0].rpartition(".")[2]
+            messages[path] = f"use `{name}`, the option's new name"
+    return messages
 
 
 def ranges(indexes: list[int]) -> list[tuple[int, int]]:
