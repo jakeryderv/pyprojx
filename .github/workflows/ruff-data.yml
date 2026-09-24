@@ -1,0 +1,82 @@
+name: Ruff data
+
+# Regenerates crates/pyprojx_core/src/ruff_data.rs after Ruff releases and opens
+# (or updates) a pull request with the result. See CONTRIBUTING.md, "Ruff data".
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ruff-data
+  cancel-in-progress: false
+
+env:
+  BRANCH: bot/ruff-data
+  DATA: crates/pyprojx_core/src/ruff_data.rs
+
+jobs:
+  update:
+    if: github.repository == 'jakeryderv/pyprojx' && vars.RELEASE_PLEASE_APP_CLIENT_ID != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.12.18"
+          enable-cache: false
+      - run: uv run scripts/update_ruff_data.py
+      - name: Compare with main and the open pull request
+        id: diff
+        run: |
+          latest="$(sed -n '/^pub const RELEASES/,/^];/p' "$DATA" | grep -o '"[^"]*"' | tail -1 | tr -d '"')"
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+          if git diff --quiet -- "$DATA"; then
+            echo "The data is up to date on main." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if git fetch --quiet origin "$BRANCH" 2>/dev/null && git diff --quiet FETCH_HEAD -- "$DATA"; then
+            echo "The open pull request already has this data." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+      # The App's token, unlike GITHUB_TOKEN, lets the pull request trigger CI.
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        if: steps.diff.outputs.changed == 'true'
+        id: app-token
+        with:
+          client-id: ${{ vars.RELEASE_PLEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_PLEASE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: pyprojx
+          permission-contents: write
+          permission-pull-requests: write
+      - name: Open or update the pull request
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+          LATEST: ${{ steps.diff.outputs.latest }}
+        run: |
+          bot="${APP_SLUG}[bot]"
+          id="$(gh api "/users/${bot}" --jq .id)"
+          git config user.name "$bot"
+          git config user.email "${id}+${bot}@users.noreply.github.com"
+          title="fix: update Ruff data for Ruff $LATEST"
+          git switch --create "$BRANCH"
+          git commit --quiet --message "$title" -- "$DATA"
+          git push --force "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$BRANCH"
+          body="Regenerated with \`uv run scripts/update_ruff_data.py\` by the [Ruff data workflow](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}). Review the diff for new deprecations and removals before merging."
+          if gh pr view "$BRANCH" --json state --jq .state 2>/dev/null | grep -qx OPEN; then
+            gh pr edit "$BRANCH" --title "$title" --body "$body"
+          else
+            gh pr create --base main --head "$BRANCH" --title "$title" --body "$body"
+          fi
+          echo "Opened or updated the pull request for Ruff $LATEST." >> "$GITHUB_STEP_SUMMARY"

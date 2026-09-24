@@ -11,7 +11,8 @@ release, it records option deprecation messages (`ruff config`), each rule's
 status (`ruff rule --all`), and the rule codes Ruff redirects to others.
 
 Schemas are cached, so later runs only download new releases. The script needs
-the network, so it runs by hand rather than in CI:
+the network, so it runs on a schedule (.github/workflows/ruff-data.yml) rather
+than in CI, or by hand:
 
     uv run scripts/update_ruff_data.py
 """

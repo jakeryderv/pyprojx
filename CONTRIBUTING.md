@@ -133,7 +133,11 @@ for example, which releases warn about a removed rule before removing it, or
 support a new Python version only in preview. The few differences it cannot
 measure this way are listed in `VALUE_OVERRIDES` in the script. The script
 caches what it downloads and measures, so later runs only fetch new releases.
-Regenerate it after Ruff releases:
+The [Ruff data workflow](.github/workflows/ruff-data.yml) regenerates it daily
+and opens a pull request, `bot/ruff-data`, when the result changes. Review the
+diff for new deprecations and removals, and let CI check the rest; a later Ruff
+release replaces the branch, so make any fixes in a separate pull request. To
+regenerate it by hand:
 
 ```sh
 uv run scripts/update_ruff_data.py
