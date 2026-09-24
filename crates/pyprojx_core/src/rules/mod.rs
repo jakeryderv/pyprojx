@@ -10,6 +10,7 @@ use crate::standards::Problem;
 
 mod build_system;
 mod dependencies;
+mod dependency_groups;
 mod license;
 mod project;
 
@@ -21,6 +22,7 @@ pub fn check(root: &DeTable<'_>, text: &str) -> Vec<Diagnostic> {
     };
     build_system::check(&mut context, root);
     project::check(&mut context, root);
+    dependency_groups::check(&mut context, root);
     context.diagnostics
 }
 

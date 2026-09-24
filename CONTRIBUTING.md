@@ -90,12 +90,13 @@ writes snapshots, so a mismatch fails the tests.
 
 Each diagnostic belongs to a rule with a stable kebab-case name, such as
 `invalid-toml` or `unknown-key`. Report an **error** only when the specification
-requires tools to reject the configuration (a MUST) *and* a mainstream build
-backend (hatchling or setuptools) does; report everything else, including
-deprecations and violations that backends tolerate, as a **warning**. Base the
-choice on evidence: build a small project with those backends and note the
-results in the pull request. The real-world corpus below catches cases where a
-project relies on a backend's leniency.
+does not allow the configuration *and* a mainstream tool rejects it: hatchling or
+setuptools for `[project]` and `[build-system]`, uv or pip for
+`[dependency-groups]`. Report everything else as a **warning**, including
+deprecations, configurations the specification advises against, and violations
+that tools tolerate. Base the choice on evidence: try a small project with those
+tools and note the results in the pull request. The real-world corpus below
+catches cases where a project relies on a tool's leniency.
 
 ### Real-world corpus
 

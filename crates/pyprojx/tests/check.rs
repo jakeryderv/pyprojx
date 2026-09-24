@@ -151,3 +151,11 @@ fn reports_dependency_and_license_problems() {
     );
     snapshot!(project.check());
 }
+
+#[test]
+fn reports_dependency_group_problems() {
+    let project = Project::with_pyproject(
+        b"[dependency-groups]\ntest = [\"pytest\"]\ndev = [{ include-group = \"tests\" }]\nlint = [{ include-group = \"docs\" }]\ndocs = [{ include-group = \"lint\" }]\n",
+    );
+    snapshot!(project.check());
+}
