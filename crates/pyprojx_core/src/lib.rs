@@ -4,6 +4,9 @@
 //! output rendering so that other front ends (a language server, or Python
 //! bindings) can reuse it.
 
+#[rustfmt::skip]
+mod backend_data;
+pub mod backends;
 pub mod diagnostic;
 pub mod document;
 pub mod parse;

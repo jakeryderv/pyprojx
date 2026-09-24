@@ -25,6 +25,8 @@ pub enum Rule {
     DuplicateName,
     /// Metadata that a specification has deprecated.
     DeprecatedMetadata,
+    /// A feature that the build backend lacks in versions `[build-system]` allows.
+    UnsupportedFeature,
 }
 
 impl Rule {
@@ -41,6 +43,7 @@ impl Rule {
             Self::InvalidDynamic => "invalid-dynamic",
             Self::DuplicateName => "duplicate-name",
             Self::DeprecatedMetadata => "deprecated-metadata",
+            Self::UnsupportedFeature => "unsupported-feature",
         }
     }
 
@@ -58,7 +61,8 @@ impl Rule {
             | Self::InvalidType
             | Self::InvalidValue
             | Self::InvalidDynamic
-            | Self::DuplicateName => Severity::Error,
+            | Self::DuplicateName
+            | Self::UnsupportedFeature => Severity::Error,
         }
     }
 }

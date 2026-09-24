@@ -167,3 +167,11 @@ fn reports_classifier_problems() {
     );
     snapshot!(project.check());
 }
+
+#[test]
+fn reports_features_the_build_backend_lacks() {
+    let project = Project::with_pyproject(
+        b"[build-system]\nrequires = [\"setuptools>=61,<77\"]\nbuild-backend = \"setuptools.build_meta\"\n\n[project]\nname = \"demo\"\nversion = \"0.1.0\"\nlicense = \"MIT\"\n",
+    );
+    snapshot!(project.check());
+}
