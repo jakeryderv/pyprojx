@@ -27,8 +27,11 @@ pub enum Rule {
     DeprecatedMetadata,
     /// A feature that a build backend or tool lacks in versions the project allows.
     UnsupportedFeature,
-    /// A tool option that the tool has deprecated.
-    DeprecatedOption,
+    /// A tool setting, such as an option or a rule code, that the tool has deprecated.
+    DeprecatedSetting,
+    /// A tool setting that has no effect, such as selecting a preview rule
+    /// without preview.
+    IneffectiveSetting,
 }
 
 impl Rule {
@@ -46,7 +49,8 @@ impl Rule {
             Self::DuplicateName => "duplicate-name",
             Self::DeprecatedMetadata => "deprecated-metadata",
             Self::UnsupportedFeature => "unsupported-feature",
-            Self::DeprecatedOption => "deprecated-option",
+            Self::DeprecatedSetting => "deprecated-setting",
+            Self::IneffectiveSetting => "ineffective-setting",
         }
     }
 
@@ -56,9 +60,10 @@ impl Rule {
     /// violations that tools tolerate are reported as warnings instead.
     pub const fn severity(self) -> Severity {
         match self {
-            Self::Toml11Syntax | Self::DeprecatedMetadata | Self::DeprecatedOption => {
-                Severity::Warning
-            }
+            Self::Toml11Syntax
+            | Self::DeprecatedMetadata
+            | Self::DeprecatedSetting
+            | Self::IneffectiveSetting => Severity::Warning,
             Self::InvalidToml
             | Self::ByteOrderMark
             | Self::UnknownKey

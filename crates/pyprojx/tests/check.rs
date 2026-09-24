@@ -183,3 +183,11 @@ fn reports_ruff_option_problems() {
     );
     snapshot!(project.check());
 }
+
+#[test]
+fn reports_ruff_rule_selector_problems() {
+    let project = Project::with_pyproject(
+        b"[dependency-groups]\ndev = [\"ruff==0.16.8\"]\n\n[tool.ruff.lint]\nselect = [\"E\", \"E5O1\", \"ANN101\", \"PLR1701\", \"AIR003\"]\nignore = [\"ANN102\"]\n",
+    );
+    snapshot!(project.check());
+}
