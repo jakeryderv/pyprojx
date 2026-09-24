@@ -23,6 +23,7 @@ jobs:
         include:
           - { tool: ruff, name: Ruff }
           - { tool: ty, name: ty }
+          - { tool: uv, name: uv }
     concurrency:
       group: tool-data-${{ matrix.tool }}
       cancel-in-progress: false

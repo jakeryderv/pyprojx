@@ -147,7 +147,7 @@ def check(version: Version, config: str) -> str:
         RUFF_CACHE / "probes.json",
         ["uvx", "--quiet", f"ruff@{version}", "check", "--no-cache", "a.py"],
         {"a.py": "x = 1\n", "pyproject.toml": config},
-    )
+    ).output
 
 
 def warns_deprecated(version: Version, code: str) -> bool:

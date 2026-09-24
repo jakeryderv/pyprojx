@@ -580,6 +580,10 @@ pub const OPTIONS: &[OptionData] = &[
     OptionData { path: "unsafe-fixes", kind: OptionKind::Value, selectors: false, types: &[(0, 156, &T2)], present: &[(0, 156)], deprecated: &[], message: None },
 ];
 
+/// Options the tables that hold them require, sorted.
+pub const REQUIRED: &[&str] = &[
+];
+
 /// Rule selectors (codes, prefixes of codes, and rule names), sorted.
 pub const SELECTORS: &[SelectorData] = &[
     SelectorData { selector: "A", present: &[(0, 156)], status: None },

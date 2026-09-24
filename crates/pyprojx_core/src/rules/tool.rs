@@ -14,7 +14,7 @@ use super::{Context, suggest};
 use crate::diagnostic::{Diagnostic, Rule};
 use crate::document::{describe_type, get};
 use crate::standards::{VersionSet, allowed_versions, allows_python_minor, required_versions};
-use crate::tool::{OptionData, OptionKind, Tool, ValueType};
+use crate::tool::{OptionData, OptionKind, Tool, Treatment, ValueType};
 
 /// Checks a tool's table against the releases the project allows.
 pub(super) struct Checker {
@@ -27,6 +27,11 @@ pub(super) struct Checker {
 
 /// Tool-specific checks, called as [`Checker`] walks a table.
 pub(super) trait Extension {
+    /// Whether to leave the option at `path` to other checks.
+    fn skips(&self, _path: &str) -> bool {
+        false
+    }
+
     /// Reports a deprecated option, returning `false` to leave it to the checker.
     fn deprecated(&mut self, _prefix: &str, _name: &str, _span: Range<usize>) -> bool {
         false
@@ -124,18 +129,23 @@ impl Checker {
         self.tool.release(index)
     }
 
-    /// Checks the options in the table at `prefix`, such as `lint.`.
+    /// Checks the options in the table at `prefix`, such as `lint.`, which
+    /// spans `span`.
     pub fn check_table(
         &self,
         context: &mut Context<'_>,
         extension: &mut dyn Extension,
-        table: &DeTable<'_>,
+        (table, span): (&DeTable<'_>, Range<usize>),
         prefix: &str,
     ) {
         let tool = self.tool;
+        self.check_required(context, table, span, prefix);
         for (key, value) in table {
             let name = key.get_ref().as_ref();
             let path = format!("{prefix}{name}");
+            if extension.skips(&path) {
+                continue;
+            }
             let Some(option) = tool.option(&path) else {
                 self.report_unknown(context, prefix, name, key.span());
                 continue;
@@ -160,30 +170,37 @@ impl Checker {
             extension.option(context, self, option, value);
             let prefix = format!("{path}.");
             let name = format!("{}.{path}", tool.table);
+            let treatment = tool.invalid_value(&path);
             match (option.kind, value.get_ref()) {
                 (OptionKind::Table, DeValue::Table(table)) => {
-                    self.check_table(context, extension, table, &prefix);
+                    self.check_table(context, extension, (table, value.span()), &prefix);
                 }
-                (OptionKind::Table, _) => context.type_mismatch(&name, "a table", value),
+                (OptionKind::Table, _) => {
+                    let diagnostic = mismatch(&format!("`{name}`"), "a table", value);
+                    context.report(self.treat(diagnostic, treatment));
+                }
                 (OptionKind::TableArray, DeValue::Array(entries)) => {
                     for entry in entries {
                         match entry.get_ref() {
                             DeValue::Table(table) => {
-                                self.check_table(context, extension, table, &prefix);
+                                self.check_table(
+                                    context,
+                                    extension,
+                                    (table, entry.span()),
+                                    &prefix,
+                                );
                             }
-                            other => context.report(Diagnostic::new(
-                                Rule::InvalidType,
-                                format!(
-                                    "entries of `{name}` must be tables, found {}",
-                                    describe_type(other)
-                                ),
-                                entry.span(),
-                            )),
+                            _ => {
+                                let subject = format!("entries of `{name}`");
+                                let diagnostic = mismatch(&subject, "tables", entry);
+                                context.report(self.treat(diagnostic, treatment));
+                            }
                         }
                     }
                 }
                 (OptionKind::TableArray, _) => {
-                    context.type_mismatch(&name, "an array of tables", value);
+                    let diagnostic = mismatch(&format!("`{name}`"), "an array of tables", value);
+                    context.report(self.treat(diagnostic, treatment));
                 }
                 (OptionKind::Map | OptionKind::Value, _) => {}
             }
@@ -206,7 +223,8 @@ impl Checker {
             (OptionKind::Table | OptionKind::TableArray, _) => return,
             (OptionKind::Map, DeValue::Table(map)) => map.values().collect(),
             (OptionKind::Map, _) => {
-                context.type_mismatch(&path, "a table", value);
+                let diagnostic = mismatch(&format!("`{path}`"), "a table", value);
+                context.report(self.treat(diagnostic, tool.invalid_value(option.path)));
                 return;
             }
             (OptionKind::Value, _) => vec![value],
@@ -253,7 +271,7 @@ impl Checker {
                             .with_label(source.clone(), "allows only versions that reject it");
                     }
                 }
-                context.report(diagnostic);
+                context.report(self.treat(diagnostic, tool.invalid_value(option.path)));
             } else {
                 let mut diagnostic = Diagnostic::new(
                     Rule::UnsupportedFeature,
@@ -316,14 +334,65 @@ impl Checker {
                 tool.docs
             ),
         };
-        context.report(
-            Diagnostic::new(
-                Rule::UnknownKey,
-                format!("unknown key `{name}` in {}", self.table_name(prefix)),
-                span,
-            )
-            .with_help(help),
-        );
+        let diagnostic = Diagnostic::new(
+            Rule::UnknownKey,
+            format!("unknown key `{name}` in {}", self.table_name(prefix)),
+            span,
+        )
+        .with_help(help);
+        let table = prefix.strip_suffix('.').unwrap_or_default();
+        context.report(self.treat(diagnostic, tool.unknown_key(table)));
+    }
+
+    /// Reports options the table at `prefix` requires but lacks.
+    fn check_required(
+        &self,
+        context: &mut Context<'_>,
+        table: &DeTable<'_>,
+        span: Range<usize>,
+        prefix: &str,
+    ) {
+        let tool = self.tool;
+        let newest = self.newest();
+        let path = prefix.strip_suffix('.').unwrap_or_default();
+        for &required in tool.required {
+            let Some(name) = required
+                .strip_prefix(prefix)
+                .filter(|name| !name.contains('.'))
+            else {
+                continue;
+            };
+            let present = tool
+                .option(required)
+                .is_some_and(|option| option.is_present(newest));
+            if present && get(table, name).is_none() {
+                let diagnostic = Diagnostic::new(
+                    Rule::MissingKey,
+                    format!("missing `{name}` in {}", self.table_name(prefix)),
+                    span.clone(),
+                )
+                .with_help(format!("{} requires it", tool.name));
+                context.report(self.treat(diagnostic, tool.invalid_value(path)));
+            }
+        }
+    }
+
+    /// Applies what the tool does with a setting it cannot read: an error if it
+    /// rejects the setting, and otherwise a warning that says what it does.
+    fn treat(&self, mut diagnostic: Diagnostic, treatment: Treatment) -> Diagnostic {
+        let note = match treatment {
+            Treatment::Rejects => return diagnostic,
+            Treatment::Warns => self.tool.warning.map(str::to_owned),
+            Treatment::Ignores => Some(format!("{} ignores it", self.tool.name)),
+        };
+        if let Some(note) = note {
+            diagnostic.help = Some(match diagnostic.help.take() {
+                Some(help) if help.ends_with('?') => format!("{help} {note}"),
+                Some(help) => format!("{help}; {note}"),
+                None => note,
+            });
+        }
+        diagnostic.as_warning()
     }
 
     /// Reports an option that some or all allowed releases lack.
@@ -339,20 +408,21 @@ impl Checker {
             .iter()
             .find(|&&index| !option.is_present(index))
             .expect("some candidate lacks the option");
+        // The tool treats an option it does not know as an unknown key.
+        let table = option.path.rsplit_once('.').map_or("", |(table, _)| table);
         self.report_missing(
             context,
             &format!("`{}.{}`", self.tool.table, option.path),
             (option.added_after(lacking), option.removed_before(lacking)),
             span,
             none_supported,
-            // The tool rejects options it does not know.
-            none_supported,
+            self.tool.unknown_key(table),
         );
     }
 
     /// Reports something that some or all allowed releases lack, given when the
-    /// tool added or removed it relative to one of those releases, as an error
-    /// if the tool rejects it.
+    /// tool added or removed it relative to one of those releases. If none of
+    /// them has it, `treatment` says what the tool does with it.
     pub fn report_missing(
         &self,
         context: &mut Context<'_>,
@@ -360,7 +430,7 @@ impl Checker {
         (added, removed): (Option<usize>, Option<usize>),
         span: Range<usize>,
         none_supported: bool,
-        rejected: bool,
+        treatment: Treatment,
     ) {
         let name = self.tool.name;
         let help = match (added, removed) {
@@ -390,10 +460,11 @@ impl Checker {
         if let Some(source) = &self.source {
             diagnostic = diagnostic.with_label(source.clone(), label);
         }
-        if !rejected {
-            diagnostic = diagnostic.as_warning();
-        }
-        context.report(diagnostic);
+        context.report(if none_supported {
+            self.treat(diagnostic, treatment)
+        } else {
+            diagnostic.as_warning()
+        });
     }
 
     fn report_deprecated(
@@ -511,4 +582,16 @@ pub(super) fn check_python_version(
         ))
         .as_warning(),
     );
+}
+
+/// A diagnostic for `subject`, such as "`tool.uv.pip`", having the wrong type.
+fn mismatch(subject: &str, expected: &str, value: &toml::Spanned<DeValue<'_>>) -> Diagnostic {
+    Diagnostic::new(
+        Rule::InvalidType,
+        format!(
+            "{subject} must be {expected}, found {}",
+            describe_type(value.get_ref())
+        ),
+        value.span(),
+    )
 }

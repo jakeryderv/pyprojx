@@ -1,0 +1,64 @@
+---
+source: crates/pyprojx/tests/check.rs
+info:
+  program: pyprojx
+  args:
+    - check
+  env:
+    NO_COLOR: "1"
+---
+success: false
+exit_code: 1
+----- stdout -----
+warning[unknown-key]: unknown key `index-ur` in `[tool.uv]`
+ --> pyproject.toml:7:1
+  |
+7 | index-ur = "https://example.com/simple"
+  | ^^^^^^^^
+  |
+  = help: did you mean `index-url`? uv warns about it and then ignores every other `[tool.uv]` setting too, such as `index-url` and `[[tool.uv.index]]`, though it still reads `sources`
+
+error[invalid-value]: invalid value for `tool.uv.managed`: expected a boolean
+ --> pyproject.toml:8:11
+  |
+8 | managed = "yes"
+  |           ^^^^^
+
+warning[deprecated-setting]: `tool.uv.dev-dependencies` is deprecated since uv 0.8.18
+ --> pyproject.toml:9:1
+  |
+9 | dev-dependencies = ["pytest"]
+  | ^^^^^^^^^^^^^^^^
+  |
+  = help: use `dependency-groups.dev` instead
+
+warning[unsupported-feature]: some uv versions the project allows do not support `tool.uv.exclude-dependencies`
+  --> pyproject.toml:10:1
+   |
+ 6 | required-version = ">=0.9"
+   |                    ------- allows versions without it
+...
+10 | exclude-dependencies = ["idna"]
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: uv added it in 0.9.8; set `required-version = ">=0.9.8"`
+
+error[missing-key]: missing `url` in `[[tool.uv.index]]`
+  --> pyproject.toml:12:1
+   |
+12 | [[tool.uv.index]]
+   | ^^^^^^^^^^^^^^^^^
+   |
+   = help: uv requires it
+
+warning[unknown-key]: unknown key `explict` in `[[tool.uv.index]]`
+  --> pyproject.toml:14:1
+   |
+14 | explict = true
+   | ^^^^^^^
+   |
+   = help: did you mean `explicit`? uv ignores it
+
+Found 2 errors and 4 warnings.
+
+----- stderr -----

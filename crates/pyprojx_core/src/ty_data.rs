@@ -135,6 +135,10 @@ pub const OPTIONS: &[OptionData] = &[
     OptionData { path: "terminal.output-format", kind: OptionKind::Value, selectors: false, types: &[(0, 14, &T5), (15, 81, &T6)], present: &[(0, 81)], deprecated: &[], message: None },
 ];
 
+/// Options the tables that hold them require, sorted.
+pub const REQUIRED: &[&str] = &[
+];
+
 /// Rule names with the releases that know them, sorted.
 pub const RULES: &[(&str, &[(u16, u16)])] = &[
     ("abstract-and-final-method", &[(62, 81)]),

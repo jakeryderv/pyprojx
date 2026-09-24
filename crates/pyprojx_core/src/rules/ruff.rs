@@ -14,7 +14,7 @@ use super::{Context, suggest};
 use crate::diagnostic::{Diagnostic, Rule};
 use crate::document::get;
 use crate::ruff::{self, RUFF, RuleStatus, SelectorData};
-use crate::tool::OptionData;
+use crate::tool::{OptionData, Treatment};
 
 /// Ruff's checks beyond options and their values.
 struct RuffChecks {
@@ -64,10 +64,10 @@ impl Extension for RuffChecks {
 }
 
 pub(super) fn check(context: &mut Context<'_>, root: &DeTable<'_>) {
-    let Some(ruff) = get(root, "tool")
+    let Some((ruff, span)) = get(root, "tool")
         .and_then(|(_, tool)| tool.get_ref().as_table())
         .and_then(|tool| get(tool, "ruff"))
-        .and_then(|(_, ruff)| ruff.get_ref().as_table())
+        .and_then(|(_, ruff)| Some((ruff.get_ref().as_table()?, ruff.span())))
     else {
         return;
     };
@@ -94,7 +94,7 @@ pub(super) fn check(context: &mut Context<'_>, root: &DeTable<'_>) {
         global_preview,
         moved: Vec::new(),
     };
-    checker.check_table(context, &mut checks, ruff, "");
+    checker.check_table(context, &mut checks, (ruff, span), "");
     report_moved(context, &checks.moved);
     check_target_version(context, root, &checker, ruff);
 }
@@ -297,7 +297,11 @@ impl RuffChecks {
             ),
             span,
             none_rejecting,
-            none_rejecting,
+            if none_rejecting {
+                Treatment::Rejects
+            } else {
+                Treatment::Warns
+            },
         );
     }
 
