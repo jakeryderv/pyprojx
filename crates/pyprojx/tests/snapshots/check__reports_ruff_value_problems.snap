@@ -17,6 +17,7 @@ warning[unsupported-feature]: Ruff 0.12.5 supports `py314` only in preview
    |                  ^^^^^^^
    |
    = help: Ruff warns that support is under development; set `preview = true` in `[tool.ruff]`, or target an earlier version
+   = note: checked against Ruff 0.12.0 to 0.12.12, which the project's requirements allow
 
 warning[invalid-value]: `target-version` is Python 3.14, but `requires-python` allows Python 3.10
   --> pyproject.toml:10:18
@@ -28,18 +29,23 @@ warning[invalid-value]: `target-version` is Python 3.14, but `requires-python` a
    |                  ^^^^^^^
    |
    = help: Ruff may suggest code that needs Python 3.14; set `target-version = "py310"`, or remove it so that Ruff uses `requires-python`
+   = note: checked against Ruff 0.12.0 to 0.12.12, which the project's requirements allow
 
 error[invalid-value]: invalid value for `tool.ruff.line-length`: expected an integer of at least 1
   --> pyproject.toml:11:15
    |
 11 | line-length = "88"
    |               ^^^^
+   |
+   = note: checked against Ruff 0.12.0 to 0.12.12, which the project's requirements allow
 
 error[invalid-value]: invalid value for `tool.ruff.format.quote-style`: expected one of `"double"`, `"preserve"`, `"single"`
   --> pyproject.toml:14:15
    |
 14 | quote-style = "Single"
    |               ^^^^^^^^
+   |
+   = note: checked against Ruff 0.12.0 to 0.12.12, which the project's requirements allow
 
 Found 2 errors and 2 warnings.
 

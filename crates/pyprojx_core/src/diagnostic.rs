@@ -32,6 +32,9 @@ pub enum Rule {
     /// A tool setting that has no effect, such as selecting a preview rule
     /// without preview.
     IneffectiveSetting,
+    /// A tool's settings were not checked because pyprojx does not know the
+    /// tool versions the project uses, such as releases newer than its data.
+    UnknownVersion,
 }
 
 impl Rule {
@@ -51,6 +54,7 @@ impl Rule {
             Self::UnsupportedFeature => "unsupported-feature",
             Self::DeprecatedSetting => "deprecated-setting",
             Self::IneffectiveSetting => "ineffective-setting",
+            Self::UnknownVersion => "unknown-version",
         }
     }
 
@@ -63,7 +67,8 @@ impl Rule {
             Self::Toml11Syntax
             | Self::DeprecatedMetadata
             | Self::DeprecatedSetting
-            | Self::IneffectiveSetting => Severity::Warning,
+            | Self::IneffectiveSetting
+            | Self::UnknownVersion => Severity::Warning,
             Self::InvalidToml
             | Self::ByteOrderMark
             | Self::UnknownKey
@@ -97,6 +102,8 @@ pub struct Diagnostic {
     pub labels: Vec<Label>,
     /// Optional advice on how to fix the problem.
     pub help: Option<String>,
+    /// Optional context, such as the tool versions a setting was checked against.
+    pub note: Option<String>,
 }
 
 /// A related source location with an explanation.
@@ -115,6 +122,7 @@ impl Diagnostic {
             span,
             labels: Vec::new(),
             help: None,
+            note: None,
         }
     }
 
@@ -130,6 +138,12 @@ impl Diagnostic {
     #[must_use]
     pub fn with_help(mut self, help: impl Into<String>) -> Self {
         self.help = Some(help.into());
+        self
+    }
+
+    #[must_use]
+    pub fn with_note(mut self, note: impl Into<String>) -> Self {
+        self.note = Some(note.into());
         self
     }
 

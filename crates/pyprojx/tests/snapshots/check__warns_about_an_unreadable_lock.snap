@@ -1,0 +1,44 @@
+---
+source: crates/pyprojx/tests/check.rs
+info:
+  program: pyprojx
+  args:
+    - check
+  env:
+    NO_COLOR: "1"
+---
+success: true
+exit_code: 0
+----- stdout -----
+warning[unsupported-feature]: some Ruff versions the project allows do not support `tool.ruff.analyze`
+ --> pyproject.toml:8:12
+  |
+6 | dev = ["ruff>=0.5"]
+  |        ----------- allows versions without it
+7 |
+8 | [tool.ruff.analyze]
+  |            ^^^^^^^
+  |
+  = help: Ruff added it in 0.6.6; require `ruff>=0.6.6`
+  = note: checked against Ruff 0.5.0 to 0.16.8, which the project's requirements allow
+
+warning[unsupported-feature]: some Ruff versions the project allows do not support `tool.ruff.analyze.detect-string-imports`
+ --> pyproject.toml:9:1
+  |
+6 | dev = ["ruff>=0.5"]
+  |        ----------- allows versions without it
+...
+9 | detect-string-imports = true
+  | ^^^^^^^^^^^^^^^^^^^^^
+  |
+  = help: Ruff added it in 0.6.6; require `ruff>=0.6.6`
+  = note: checked against Ruff 0.5.0 to 0.16.8, which the project's requirements allow
+
+Found 2 warnings.
+
+----- stderr -----
+warning: failed to read `uv.lock`, so tool versions are not taken from it: TOML parse error at line 1, column 11
+  |
+1 | [[package]
+  |           ^
+unclosed array table, expected `]`

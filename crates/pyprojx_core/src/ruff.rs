@@ -14,6 +14,7 @@ pub static RUFF: Tool = Tool {
     table: "tool.ruff",
     docs: "https://docs.astral.sh/ruff/settings/",
     upgrade: "require `ruff>={version}`",
+    pin: "add `ruff` to a dependency group, or lock it, to check the version you use",
     releases: RELEASES,
     options: OPTIONS,
     required: REQUIRED,

@@ -14,7 +14,7 @@ use std::ops::Range;
 
 use toml::de::DeTable;
 
-use super::tool::{Checker, Extension};
+use super::tool::{Basis, Checker, Extension};
 use super::{Context, uv_references};
 use crate::backends;
 use crate::diagnostic::{Diagnostic, Rule};
@@ -42,20 +42,22 @@ impl Extension for BuildBackendChecks {
 }
 
 pub(super) fn check(context: &mut Context<'_>, root: &DeTable<'_>) {
-    let Some((uv, span)) = get(root, "tool")
+    let Some((uv, span, key)) = get(root, "tool")
         .and_then(|(_, tool)| tool.get_ref().as_table())
         .and_then(|tool| get(tool, "uv"))
-        .and_then(|(_, uv)| Some((uv.get_ref().as_table()?, uv.span())))
+        .and_then(|(key, uv)| Some((uv.get_ref().as_table()?, uv.span(), key.span())))
     else {
         return;
     };
     let checker = Checker::new(context, &UV, root, uv, None, Some("required-version"));
-    // Nothing to say about releases pyprojx does not know.
     if checker.candidates.is_empty() {
+        checker.report_unchecked(context, key);
         return;
     }
+    let start = context.diagnostics.len();
     checker.check_table(context, &mut UvChecks, (uv, span.clone()), "");
     uv_references::check(context, &checker, root, uv);
+    checker.annotate(context, start);
     check_build_backend(context, root, (uv, span));
 }
 
@@ -112,7 +114,9 @@ fn check_build_backend(
         });
     let releases = UV_BUILD.releases;
     let published = VersionSet::at_least(uv_build.first);
-    let (candidates, source) = match requirement {
+    // Build requirements are not locked.
+    let requirements = Basis::Setting("build-system.requires".to_owned());
+    let (candidates, source, basis) = match requirement {
         Some((Some(versions), span)) => (
             (0..releases.len())
                 .filter(|&index| {
@@ -120,16 +124,19 @@ fn check_build_backend(
                 })
                 .collect(),
             Some(span),
+            requirements,
         ),
-        Some((None, span)) => (vec![UV_BUILD.latest()], Some(span)),
-        None => (vec![UV_BUILD.latest()], None),
+        Some((None, span)) => (vec![UV_BUILD.latest()], Some(span), requirements),
+        None => (vec![UV_BUILD.latest()], None, Basis::Latest),
     };
-    let checker = Checker::with_candidates(&UV_BUILD, candidates, source);
-    // Nothing to say about releases pyprojx does not know.
+    let checker = Checker::with_candidates(&UV_BUILD, candidates, source, basis);
     if checker.candidates.is_empty() {
+        checker.report_unchecked(context, key.span());
         return;
     }
+    let start = context.diagnostics.len();
     checker.check_table(context, &mut BuildBackendChecks, (uv, span), "");
+    checker.annotate(context, start);
 }
 
 #[cfg(test)]

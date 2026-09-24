@@ -9,6 +9,7 @@ mod backend_data;
 pub mod backends;
 pub mod diagnostic;
 pub mod document;
+pub mod lock;
 pub mod parse;
 pub mod ruff;
 #[rustfmt::skip]
@@ -29,6 +30,7 @@ pub mod uv;
 mod uv_data;
 
 pub use diagnostic::{Diagnostic, Rule, Severity};
+pub use lock::{Lock, LockKind};
 
 /// The result of checking a file.
 #[derive(Debug)]
@@ -41,6 +43,12 @@ pub struct Checked {
 
 /// Checks the contents of a `pyproject.toml` file.
 pub fn check(bytes: Vec<u8>) -> Checked {
+    check_with_lock(bytes, None)
+}
+
+/// Checks the contents of a `pyproject.toml` file, checking tool settings
+/// against the versions `lock` locks, if given.
+pub fn check_with_lock(bytes: Vec<u8>, lock: Option<&Lock>) -> Checked {
     let (text, encoding_error) = source::decode(bytes);
     if let Some(diagnostic) = encoding_error {
         // Further diagnostics on text with replaced characters could be misleading.
@@ -57,7 +65,7 @@ pub fn check(bytes: Vec<u8>) -> Checked {
     diagnostics.extend(parsed.diagnostics);
     if is_valid_toml {
         diagnostics.extend(toml_version::check_toml_1_1_syntax(&text));
-        diagnostics.extend(rules::check(parsed.root.get_ref(), &text));
+        diagnostics.extend(rules::check(parsed.root.get_ref(), &text, lock));
     }
     diagnostics.sort_by_key(|diagnostic| (diagnostic.span.start, diagnostic.span.end));
     Checked { text, diagnostics }

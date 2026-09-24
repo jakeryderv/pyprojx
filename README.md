@@ -35,8 +35,10 @@ as license expressions, that the build backend versions allowed by
 `[build-system]` lack, and checks `[tool.ruff]`, `[tool.ty]`, and `[tool.uv]`
 options and values, Ruff's rule selectors, ty's rules, and the indexes, extras,
 and groups `[tool.uv]` refers to, against the Ruff, ty, and uv versions the
-project allows. The other capabilities above are not
-implemented yet.
+project uses: those locked in `uv.lock` or `pylock.toml` if there is one,
+otherwise those its requirements or `required-version` allow. Each of those
+diagnostics says which versions it was checked against and where they came
+from. The other capabilities above are not implemented yet.
 
 ```text
 $ pyprojx check

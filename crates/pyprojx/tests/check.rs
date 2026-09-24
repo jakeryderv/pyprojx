@@ -231,3 +231,59 @@ fn reports_ruff_value_problems() {
     );
     snapshot!(project.check());
 }
+
+/// A project that locks Ruff and configures `analyze`, which Ruff 0.5 lacks.
+const LOCKED_PROJECT: &[u8] = b"[project]\nname = \"demo\"\nversion = \"0.1.0\"\n\n[dependency-groups]\ndev = [\"ruff>=0.5\"]\n\n[tool.ruff.analyze]\ndetect-string-imports = true\n";
+
+fn uv_lock(ruff: &str, members: &[&str]) -> Vec<u8> {
+    let mut lock = String::from("version = 1\nrevision = 3\n");
+    for member in members {
+        lock.push_str(&format!(
+            "\n[[package]]\nname = \"{member}\"\nversion = \"0.1.0\"\nsource = {{ editable = \".\" }}\n"
+        ));
+    }
+    lock.push_str(&format!(
+        "\n[[package]]\nname = \"ruff\"\nversion = \"{ruff}\"\nsource = {{ registry = \"https://pypi.org/simple\" }}\n"
+    ));
+    lock.into_bytes()
+}
+
+#[test]
+fn checks_tool_settings_against_locked_versions() {
+    let project = Project::with_pyproject(LOCKED_PROJECT);
+    project.write("uv.lock", &uv_lock("0.5.0", &["demo"]));
+    snapshot!(project.check());
+}
+
+#[test]
+fn reads_pylock_toml() {
+    let project = Project::with_pyproject(LOCKED_PROJECT);
+    project.write(
+        "pylock.toml",
+        b"lock-version = \"1.0\"\ncreated-by = \"uv\"\n\n[[packages]]\nname = \"ruff\"\nversion = \"0.5.0\"\n",
+    );
+    snapshot!(project.check());
+}
+
+#[test]
+fn reads_the_workspace_lock_of_a_member() {
+    let project = Project::with_pyproject(b"[tool.uv.workspace]\nmembers = [\"packages/*\"]\n");
+    project.write("uv.lock", &uv_lock("0.5.0", &["demo"]));
+    project.write("packages/demo/pyproject.toml", LOCKED_PROJECT);
+    snapshot!(project.check_in(&project.dir.path().join("packages/demo")));
+}
+
+#[test]
+fn ignores_the_lock_of_another_project() {
+    let project = Project::with_pyproject(b"[project]\nname = \"other\"\nversion = \"0.1.0\"\n");
+    project.write("uv.lock", &uv_lock("0.5.0", &["other"]));
+    project.write("demo/pyproject.toml", LOCKED_PROJECT);
+    snapshot!(project.check_in(&project.dir.path().join("demo")));
+}
+
+#[test]
+fn warns_about_an_unreadable_lock() {
+    let project = Project::with_pyproject(LOCKED_PROJECT);
+    project.write("uv.lock", b"[[package]\n");
+    snapshot!(project.check());
+}

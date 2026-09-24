@@ -12,6 +12,7 @@ pub static TY: Tool = Tool {
     table: "tool.ty",
     docs: "https://docs.astral.sh/ty/reference/configuration/",
     upgrade: "require `ty>={version}`",
+    pin: "add `ty` to a dependency group, or lock it, to check the version you use",
     releases: RELEASES,
     options: OPTIONS,
     required: REQUIRED,

@@ -17,6 +17,7 @@ error[unknown-key]: unknown key `line-lenght` in `[tool.ruff]`
   | ^^^^^^^^^^^
   |
   = help: did you mean `line-length`?
+  = note: checked against Ruff 0.5.0 to 0.5.7, which the project's requirements allow
 
 warning[deprecated-setting]: linter settings at the top level of `[tool.ruff]` are deprecated
  --> pyproject.toml:6:1
@@ -27,6 +28,7 @@ warning[deprecated-setting]: linter settings at the top level of `[tool.ruff]` a
   | ------ also a linter setting
   |
   = help: move them to `[tool.ruff.lint]`, such as `[tool.ruff.lint] select = [...]`
+  = note: checked against Ruff 0.5.0 to 0.5.7, which the project's requirements allow
 
 error[unsupported-feature]: no Ruff version the project allows supports `tool.ruff.analyze`
  --> pyproject.toml:9:12
@@ -38,6 +40,7 @@ error[unsupported-feature]: no Ruff version the project allows supports `tool.ru
   |            ^^^^^^^
   |
   = help: Ruff added it in 0.6.6; require `ruff>=0.6.6`
+  = note: checked against Ruff 0.5.0 to 0.5.7, which the project's requirements allow
 
 Found 2 errors and 1 warning.
 
