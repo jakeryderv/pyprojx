@@ -98,7 +98,7 @@ def check(version: Version, config: str) -> str:
             "a.py": "x = 1\n",
             "pyproject.toml": f'[project]\nname = "demo"\nversion = "1"\n{config}',
         },
-    )
+    ).output
 
 
 def rules(document: dict) -> list[str]:

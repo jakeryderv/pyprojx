@@ -12,7 +12,7 @@ use super::tool::{Checker, Extension, check_python_version};
 use super::{Context, suggest};
 use crate::diagnostic::{Diagnostic, Rule};
 use crate::document::get;
-use crate::tool::OptionData;
+use crate::tool::{OptionData, Treatment};
 use crate::ty::{self, TY};
 
 /// ty's checks beyond options and their values.
@@ -37,10 +37,10 @@ impl Extension for TyChecks {
 }
 
 pub(super) fn check(context: &mut Context<'_>, root: &DeTable<'_>) {
-    let Some(ty) = get(root, "tool")
+    let Some((ty, span)) = get(root, "tool")
         .and_then(|(_, tool)| tool.get_ref().as_table())
         .and_then(|tool| get(tool, "ty"))
-        .and_then(|(_, ty)| ty.get_ref().as_table())
+        .and_then(|(_, ty)| Some((ty.get_ref().as_table()?, ty.span())))
     else {
         return;
     };
@@ -49,7 +49,7 @@ pub(super) fn check(context: &mut Context<'_>, root: &DeTable<'_>) {
     if checker.candidates.is_empty() {
         return;
     }
-    checker.check_table(context, &mut TyChecks, ty, "");
+    checker.check_table(context, &mut TyChecks, (ty, span), "");
     check_python_version_setting(context, root, &checker, ty);
 }
 
@@ -91,7 +91,7 @@ fn check_rule(context: &mut Context<'_>, checker: &Checker, name: &str, span: Ra
         span,
         lacking.len() == checker.candidates.len(),
         // ty warns about rules it does not know and ignores them.
-        false,
+        Treatment::Warns,
     );
 }
 

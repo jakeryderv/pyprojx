@@ -124,11 +124,11 @@ across releases; investigate those by hand.
 
 ### Tool data
 
-`crates/pyprojx_core/src/ruff_data.rs` and `ty_data.rs` record which releases of
-Ruff and ty accept each option and value, and which deprecate each option. They
-are generated from the configuration schema of every release, by
-`scripts/update_ruff_data.py` and `scripts/update_ty_data.py`, which share
-`scripts/schema_history.py`. Where a tool behaves differently from its schema,
+`crates/pyprojx_core/src/ruff_data.rs`, `ty_data.rs`, and `uv_data.rs` record
+which releases of Ruff, ty, and uv accept each option and value, and which
+deprecate each option. They are generated from the configuration schema of
+every release, by `scripts/update_ruff_data.py`, `update_ty_data.py`, and
+`update_uv_data.py`, which share `scripts/schema_history.py`. Where a tool behaves differently from its schema,
 the scripts run the tool to find out when: for example, which releases still
 accept an option after its schema drops it, as tools do for renamed options.
 The scripts cache what they download and measure, so later runs only fetch new
@@ -143,6 +143,7 @@ separate pull request. To regenerate the data by hand:
 ```sh
 uv run scripts/update_ruff_data.py
 uv run scripts/update_ty_data.py
+uv run scripts/update_uv_data.py
 ```
 
 To check pyprojx against a tool itself, build it and compare the two on sample
@@ -153,6 +154,7 @@ except for the differences each script lists:
 cargo build
 uv run scripts/compare_with_ruff.py 0.16.8 0.12.0 0.5.0 0.1.0
 uv run scripts/compare_with_ty.py 0.0.83 0.0.60 0.0.30 0.0.2
+uv run scripts/compare_with_uv.py 0.12.18 0.9.0 0.7.0 0.5.14
 ```
 
 #### Ruff
@@ -170,6 +172,18 @@ ty's source is in the Ruff repository, which each ty release pins as a
 submodule, so the script reads each release's schema at that commit. ty's data
 also records which releases know each rule; ty warns about rules it does not
 know rather than rejecting them.
+
+#### uv
+
+uv rejects some invalid settings but not others: it fails on an invalid project
+field, such as `sources` or `managed`, but only warns about an unknown key or an
+invalid value among its settings, such as `index-url`, and then ignores the
+file's other settings, and it silently ignores unknown keys in
+`[[tool.uv.index]]`. The script measures what the latest release does with an
+unknown key in each table and an invalid value for each option, and pyprojx
+reports an error only where uv fails. It also runs uv to find which options uv
+warns are deprecated. Where uv's schema is wrong, such as for `pip.group`, the
+script lists the right type in `NAMED`.
 
 ### Trove classifiers
 

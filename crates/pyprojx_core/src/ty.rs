@@ -4,7 +4,7 @@
 //! `scripts/update_ty_data.py`.
 
 use crate::tool::{Tool, added_after, contains, removed_before};
-use crate::ty_data::{OPTIONS, RELEASES, RULES};
+use crate::ty_data::{OPTIONS, RELEASES, REQUIRED, RULES};
 
 /// ty's configuration, `[tool.ty]`.
 pub static TY: Tool = Tool {
@@ -14,6 +14,10 @@ pub static TY: Tool = Tool {
     upgrade: "require `ty>={version}`",
     releases: RELEASES,
     options: OPTIONS,
+    required: REQUIRED,
+    unknown_keys: &[],
+    invalid_values: &[],
+    warning: None,
 };
 
 /// A rule, such as `unresolved-import`, and the releases that know it.

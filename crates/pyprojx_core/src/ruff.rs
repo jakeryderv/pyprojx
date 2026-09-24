@@ -4,7 +4,7 @@
 //! metadata by `scripts/update_ruff_data.py`.
 
 use crate::ruff_data::{
-    DEPRECATED_VALUES, OPTIONS, PYTHON_IN_DEVELOPMENT, REDIRECTS, RELEASES, SELECTORS,
+    DEPRECATED_VALUES, OPTIONS, PYTHON_IN_DEVELOPMENT, REDIRECTS, RELEASES, REQUIRED, SELECTORS,
 };
 use crate::tool::{Tool, added_after, contains, removed_before};
 
@@ -16,6 +16,10 @@ pub static RUFF: Tool = Tool {
     upgrade: "require `ruff>={version}`",
     releases: RELEASES,
     options: OPTIONS,
+    required: REQUIRED,
+    unknown_keys: &[],
+    invalid_values: &[],
+    warning: None,
 };
 
 /// A rule's status in the latest known release, with indexes into [`RUFF`]'s releases.

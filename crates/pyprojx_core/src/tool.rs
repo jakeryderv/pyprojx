@@ -22,6 +22,28 @@ pub struct Tool {
     pub releases: &'static [&'static str],
     /// Options by path, sorted.
     pub options: &'static [OptionData],
+    /// Options the tables that hold them require, sorted.
+    pub required: &'static [&'static str],
+    /// What the tool does with an unknown key in each table (`""` for the top
+    /// level), where it does not reject it, sorted.
+    pub unknown_keys: &'static [(&'static str, Treatment)],
+    /// What the tool does with an invalid value for each option, where it does
+    /// not reject it, sorted.
+    pub invalid_values: &'static [(&'static str, Treatment)],
+    /// What else happens when the tool warns about a setting it cannot read,
+    /// such as ignoring the other settings.
+    pub warning: Option<&'static str>,
+}
+
+/// What a tool does with a setting it cannot read, measured by running it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Treatment {
+    /// It fails.
+    Rejects,
+    /// It warns, and may ignore more than the setting; see [`Tool::warning`].
+    Warns,
+    /// It ignores the setting without a word.
+    Ignores,
 }
 
 impl Tool {
@@ -53,6 +75,22 @@ impl Tool {
             .filter_map(|option| option.path.strip_prefix(prefix))
             .filter(|name| !name.contains('.'))
             .collect()
+    }
+
+    /// What the tool does with an unknown key in the table at `path`, such as
+    /// `lint`, or `""` for the top level.
+    pub fn unknown_key(&self, path: &str) -> Treatment {
+        lookup(self.unknown_keys, path)
+    }
+
+    /// What the tool does with an invalid value for the option at `path`.
+    pub fn invalid_value(&self, path: &str) -> Treatment {
+        lookup(self.invalid_values, path)
+    }
+
+    /// Whether the table that holds the option at `path` requires it.
+    pub fn is_required(&self, path: &str) -> bool {
+        self.required.binary_search(&path).is_ok()
     }
 
     /// How to require `release`, such as "require `ruff>=0.8.0`".
@@ -208,6 +246,12 @@ impl OptionData {
     }
 }
 
+fn lookup(treatments: &[(&str, Treatment)], path: &str) -> Treatment {
+    treatments
+        .binary_search_by(|(other, _)| (*other).cmp(path))
+        .map_or(Treatment::Rejects, |index| treatments[index].1)
+}
+
 /// Whether inclusive ranges of releases include `release`.
 pub(crate) fn contains(ranges: &[(u16, u16)], release: usize) -> bool {
     ranges
@@ -239,6 +283,16 @@ pub(crate) mod tests {
     /// Checks that a tool's data is sorted and refers to known releases.
     pub fn assert_consistent(tool: &Tool) {
         assert!(tool.options.is_sorted_by(|a, b| a.path < b.path));
+        assert!(tool.required.is_sorted());
+        assert!(tool.unknown_keys.is_sorted_by(|a, b| a.0 < b.0));
+        assert!(tool.invalid_values.is_sorted_by(|a, b| a.0 < b.0));
+        for path in tool
+            .required
+            .iter()
+            .chain(tool.invalid_values.iter().map(|(p, _)| p))
+        {
+            assert!(tool.option(path).is_some(), "{path}");
+        }
         let last = u16::try_from(tool.latest()).unwrap();
         for option in tool.options {
             assert!(!option.present.is_empty(), "{}", option.path);

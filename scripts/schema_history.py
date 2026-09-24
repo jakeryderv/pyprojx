@@ -15,7 +15,7 @@ import tempfile
 import urllib.error
 import urllib.request
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from packaging.version import InvalidVersion, Version
@@ -59,6 +59,25 @@ def fetch(urls: Iterable[str], path: Path) -> bytes | None:
     return path.read_bytes()
 
 
+def fill_gaps(versions: list[Version], schemas: list[dict | None], named=None) -> None:
+    """Gives releases without a schema, such as those without a tag, the
+    schema of the releases around them, if those two describe the same
+    options. Raises otherwise."""
+    for index, document in enumerate(schemas):
+        if document is not None:
+            continue
+        before = schemas[index - 1] if index > 0 else None
+        after = next((s for s in schemas[index + 1 :] if s is not None), None)
+        if (
+            before is None
+            or after is None
+            or options(before, named) != options(after, named)
+        ):
+            raise RuntimeError(f"no schema for {versions[index]}")
+        print(f"{versions[index]} has no schema; using {versions[index - 1]}'s")
+        schemas[index] = before
+
+
 @dataclass(frozen=True)
 class Info:
     kind: str
@@ -66,6 +85,8 @@ class Info:
     selectors: bool
     # The canonical type of the values, from `value_type`; `None` for tables.
     value_type: tuple | None
+    # Whether the table that holds the option requires it.
+    required: bool = False
 
 
 def options(document: dict, named: dict[str, tuple] | None = None) -> dict[str, Info]:
@@ -79,7 +100,11 @@ def options(document: dict, named: dict[str, tuple] | None = None) -> dict[str, 
     def resolve(node: dict) -> dict:
         while True:
             if "$ref" in node:
-                node = definitions[node["$ref"].rsplit("/", 1)[1]]
+                name = node["$ref"].rsplit("/", 1)[1]
+                if name in named:
+                    # A value of the given type, whatever the schema says.
+                    return node
+                node = definitions[name]
                 continue
             choices = node.get("anyOf") or node.get("oneOf") or node.get("allOf")
             if choices:
@@ -147,6 +172,7 @@ def options(document: dict, named: dict[str, tuple] | None = None) -> dict[str, 
         )
 
     def walk(node: dict, prefix: str) -> None:
+        required = set(node.get("required", []))
         for key, prop in node.get("properties", {}).items():
             path = prefix + key
             target = resolve(prop)
@@ -169,6 +195,8 @@ def options(document: dict, named: dict[str, tuple] | None = None) -> dict[str, 
                 found[path] = Info(
                     "Value", deprecated, selects_rules(target), value_type(prop)
                 )
+            if key in required:
+                found[path] = replace(found[path], required=True)
 
     walk(document, "")
     return found
@@ -178,6 +206,8 @@ def options(document: dict, named: dict[str, tuple] | None = None) -> dict[str, 
 class Option:
     kind: str
     selectors: bool = False
+    # Whether the latest release that has the option requires it.
+    required: bool = False
     present: list[int] = field(default_factory=list)
     deprecated: list[int] = field(default_factory=list)
     # The value type in each release that accepts the option.
@@ -197,6 +227,7 @@ def collect(
             kind, deprecated = info.kind, info.deprecated
             option = found.setdefault(path, Option(kind))
             option.selectors = option.selectors or info.selectors
+            option.required = info.required
             if info.value_type is not None:
                 option.types[index] = info.value_type
             if option.kind != kind:
@@ -336,23 +367,47 @@ def first_where(indexes: list[int], predicate: Callable[[int], bool]) -> int | N
     return indexes[high]
 
 
-def probe(cache: Path, command: list[str], files: dict[str, str]) -> str:
-    """The output of `command` run in a directory with `files`, cached across
-    runs in `cache`."""
+def clean_environment() -> dict[str, str]:
+    """The environment without what `uv run` sets, such as `VIRTUAL_ENV`, which
+    uv warns about when it runs in a project."""
+    return {
+        name: value
+        for name, value in os.environ.items()
+        if name != "VIRTUAL_ENV" and name != "UV" and not name.startswith("UV_RUN_")
+    }
+
+
+@dataclass(frozen=True)
+class Probe:
+    output: str
+    status: int
+
+
+def probe(cache: Path, command: list[str], files: dict[str, str]) -> Probe:
+    """The output and exit status of `command` run in a directory with `files`,
+    cached across runs in `cache`."""
     known = json.loads(cache.read_text()) if cache.exists() else {}
     key = " ".join(command) + "\n" + "\n".join(f"{n}:\n{c}" for n, c in files.items())
-    if key not in known:
+    if not isinstance(known.get(key), dict):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             for name, content in files.items():
                 (root / name).write_text(content)
             process = subprocess.run(
-                command, cwd=root, capture_output=True, text=True, check=False
+                command,
+                cwd=root,
+                capture_output=True,
+                text=True,
+                check=False,
+                env=clean_environment(),
             )
-        known[key] = process.stdout + process.stderr
+        known[key] = {
+            "output": process.stdout + process.stderr,
+            "status": process.returncode,
+        }
         cache.parent.mkdir(parents=True, exist_ok=True)
         cache.write_text(json.dumps(known, indent=1, sort_keys=True))
-    return known[key]
+    return Probe(**known[key])
 
 
 def rust_type(value_type: tuple) -> str:
@@ -441,5 +496,14 @@ def generate_options(
             f"present: {rust_ranges(ranges(option.present))}, "
             f"deprecated: {rust_ranges(ranges(option.deprecated))}, message: {message} }},"
         )
+    lines += [
+        "];",
+        "",
+        "/// Options the tables that hold them require, sorted.",
+        "pub const REQUIRED: &[&str] = &[",
+    ]
+    lines += [
+        f"    {rust_string(path)}," for path in sorted(found) if found[path].required
+    ]
     lines += ["];", ""]
     return lines
