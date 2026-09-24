@@ -33,7 +33,9 @@ def generate() -> str:
         "/// Classifiers accepted by PyPI, sorted.",
         "pub const CLASSIFIERS: &[&str] = &[",
     ]
-    lines += [f"    {rust_string(name)}," for name in sorted(trove_classifiers.classifiers)]
+    lines += [
+        f"    {rust_string(name)}," for name in sorted(trove_classifiers.classifiers)
+    ]
     lines += [
         "];",
         "",
@@ -49,7 +51,9 @@ def generate() -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--check", action="store_true", help="fail if the file is out of date")
+    parser.add_argument(
+        "--check", action="store_true", help="fail if the file is out of date"
+    )
     args = parser.parse_args()
     content = generate()
     current = OUTPUT.read_text(encoding="utf-8") if OUTPUT.exists() else None
