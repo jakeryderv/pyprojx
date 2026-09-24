@@ -143,3 +143,11 @@ fn reports_project_problems_with_labels() {
     );
     snapshot!(project.check());
 }
+
+#[test]
+fn reports_dependency_and_license_problems() {
+    let project = Project::with_pyproject(
+        b"[project]\nname = \"demo\"\nversion = \"0.1.0\"\nlicense = \"Apache 2.0\"\ndependencies = [\"requests >= 2.3.*\"]\nclassifiers = [\"License :: OSI Approved :: Apache Software License\"]\n",
+    );
+    snapshot!(project.check());
+}

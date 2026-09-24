@@ -1,0 +1,40 @@
+---
+source: crates/pyprojx/tests/check.rs
+info:
+  program: pyprojx
+  args:
+    - check
+  env:
+    NO_COLOR: "1"
+---
+success: false
+exit_code: 1
+----- stdout -----
+error[invalid-value]: invalid license expression `Apache 2.0`
+ --> pyproject.toml:4:12
+  |
+4 | license = "Apache 2.0"
+  |            ^^^^^^
+  |
+  = help: did you mean `Apache-2.0`?
+
+error[invalid-value]: invalid requirement: Operator >= cannot be used with a wildcard version specifier
+ --> pyproject.toml:5:27
+  |
+5 | dependencies = ["requests >= 2.3.*"]
+  |                           ^^^^^^^^
+
+warning[deprecated-metadata]: `License ::` classifiers are deprecated
+ --> pyproject.toml:6:16
+  |
+4 | license = "Apache 2.0"
+  |           ------------ license expression set here
+5 | dependencies = ["requests >= 2.3.*"]
+6 | classifiers = ["License :: OSI Approved :: Apache Software License"]
+  |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = help: remove the classifier; the license expression replaces it, and setuptools rejects the combination
+
+Found 2 errors and 1 warning.
+
+----- stderr -----
