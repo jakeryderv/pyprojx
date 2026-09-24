@@ -19,6 +19,7 @@ mod ruff;
 mod tool;
 mod ty;
 mod uv;
+mod uv_references;
 
 /// Checks the standard tables of a valid TOML document.
 pub fn check(root: &DeTable<'_>, text: &str) -> Vec<Diagnostic> {

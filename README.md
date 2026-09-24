@@ -33,8 +33,9 @@ syntax that `tomllib` in Python 3.14 and earlier rejects, and validates
 and trove classifiers), and `[dependency-groups]`. It also reports features, such
 as license expressions, that the build backend versions allowed by
 `[build-system]` lack, and checks `[tool.ruff]`, `[tool.ty]`, and `[tool.uv]`
-options and values, Ruff's rule selectors, and ty's rules against the Ruff, ty,
-and uv versions the project allows. The other capabilities above are not
+options and values, Ruff's rule selectors, ty's rules, and the indexes, extras,
+and groups `[tool.uv]` refers to, against the Ruff, ty, and uv versions the
+project allows. The other capabilities above are not
 implemented yet.
 
 ```text

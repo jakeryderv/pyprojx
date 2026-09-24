@@ -27,7 +27,10 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-HEADER = '[project]\nname = "demo"\nversion = "1"\nrequires-python = ">=3.8"\n'
+HEADER = (
+    '[project]\nname = "demo"\nversion = "1"\nrequires-python = ">=3.8"\n'
+    "[project.optional-dependencies]\nweb = []\n[dependency-groups]\ndev = []\n"
+)
 INDEX = 'url = "https://example.com/simple"'
 # Settings under `[tool.uv]`, as TOML lines.
 SETTINGS = [
@@ -47,7 +50,6 @@ SETTINGS = [
     "exclude-dependencies = ['idna']",
     "default-groups = 'all'",
     "default-groups = ['dev']",
-    "conflicts = [[{ extra = 'a' }, { extra = 'b' }]]",
     "environments = ['sys_platform == \"linux\"']",
     "environments = 1",
     "sources = 1",
@@ -68,6 +70,21 @@ SETTINGS = [
     "concurrent-downloads = 0",
     "concurrent-downloads = -1",
     "preview-features = ['bogus-feature']",
+    # References to names in the project.
+    "default-groups = ['dev']",
+    "default-groups = ['test']",
+    "dependency-groups = { dev = { requires-python = '>=3.12' } }",
+    "dependency-groups = { test = { requires-python = '>=3.12' } }",
+    "conflicts = [[{ extra = 'web' }, { group = 'dev' }]]",
+    "conflicts = [[{ extra = 'web' }, { extra = 'cli' }]]",
+    "conflicts = [[{ extra = 'web' }]]",
+    f"index = [{{ name = 'a', {INDEX} }}, {{ name = 'a', {INDEX} }}]",
+    f"index = [{{ {INDEX}, default = true }}, {{ {INDEX}, default = true }}]",
+    f"index = [{{ name = 'my index', {INDEX} }}]",
+    "sources = { idna = { git = 'https://github.com/kjd/idna', brnch = 'main' } }",
+    "sources = { idna = { git = 'https://github.com/kjd/idna', tag = 'a', branch = 'b' } }",
+    "sources = { idna = { url = 'https://example.com/idna.whl', path = '../idna' } }",
+    "sources = { idna = { marker = 'sys_platform == \"linux\"' } }",
 ]
 
 # Where pyprojx intentionally disagrees: (setting, uv's verdict, pyprojx's).
@@ -77,6 +94,22 @@ DIFFERENCES = {
     # uv warns about preview features it does not know; pyprojx does not check
     # their names yet.
     ("preview-features = ['bogus-feature']", "warning", "ok"),
+    # `uv sync` fails on a default group that does not exist; `uv lock` does not.
+    ("default-groups = ['test']", "ok", "error"),
+    # uv ignores conflicts naming extras that do not exist; pyprojx warns.
+    ("conflicts = [[{ extra = 'web' }, { extra = 'cli' }]]", "ok", "warning"),
+    # uv accepts duplicate index names before 0.6.4 and a second default index
+    # before 0.10.0; pyprojx warns that later releases reject them.
+    (
+        f"index = [{{ name = 'a', {INDEX} }}, {{ name = 'a', {INDEX} }}]",
+        "ok",
+        "warning",
+    ),
+    (
+        f"index = [{{ {INDEX}, default = true }}, {{ {INDEX}, default = true }}]",
+        "ok",
+        "warning",
+    ),
 }
 
 

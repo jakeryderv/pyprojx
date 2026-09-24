@@ -712,3 +712,13 @@ pub const INVALID_VALUES: &[(&str, Treatment)] = &[
     ("upgrade", Treatment::Warns),
     ("upgrade-package", Treatment::Warns),
 ];
+
+/// The kinds of `tool.uv.sources` entries in the latest release, by the key
+/// each requires, with the keys each allows.
+pub const SOURCE_KINDS: &[(&str, &[&str])] = &[
+    ("git", &["branch", "extra", "git", "group", "lfs", "marker", "path", "rev", "subdirectory", "tag"]),
+    ("url", &["extra", "group", "marker", "subdirectory", "url"]),
+    ("path", &["editable", "extra", "group", "marker", "package", "path"]),
+    ("index", &["extra", "group", "index", "marker"]),
+    ("workspace", &["editable", "extra", "group", "marker", "workspace"]),
+];

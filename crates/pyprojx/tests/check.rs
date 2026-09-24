@@ -209,6 +209,14 @@ fn reports_uv_problems() {
 }
 
 #[test]
+fn reports_uv_reference_problems() {
+    let project = Project::with_pyproject(
+        b"[project]\nname = \"demo\"\nversion = \"0.1.0\"\ndependencies = [\"torch\"]\n\n[dependency-groups]\ndev = [\"pytest\"]\n\n[tool.uv]\ndefault-groups = [\"test\"]\n\n[tool.uv.sources]\ntorch = { index = \"pytorch-cu\" }\nrequests = { git = \"https://github.com/psf/requests\", tag = \"v2.32.0\", branch = \"main\" }\n\n[[tool.uv.index]]\nname = \"pytorch-cpu\"\nurl = \"https://download.pytorch.org/whl/cpu\"\nexplicit = true\n",
+    );
+    snapshot!(project.check());
+}
+
+#[test]
 fn reports_ruff_value_problems() {
     let project = Project::with_pyproject(
         b"[project]\nname = \"demo\"\nversion = \"0.1.0\"\nrequires-python = \">=3.10\"\n\n[dependency-groups]\ndev = [\"ruff>=0.12,<0.13\"]\n\n[tool.ruff]\ntarget-version = \"py314\"\nline-length = \"88\"\n\n[tool.ruff.format]\nquote-style = \"Single\"\n",
