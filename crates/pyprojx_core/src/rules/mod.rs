@@ -9,6 +9,8 @@ use crate::document::{Value, describe_type, string_span};
 use crate::standards::Problem;
 
 mod build_system;
+mod dependencies;
+mod license;
 mod project;
 
 /// Checks the standard tables of a valid TOML document.
@@ -118,12 +120,17 @@ impl Context<'_> {
         ));
     }
 
-    /// Reports an invalid string value, pointing at the invalid part when known.
-    fn invalid_string(&mut self, message: String, span: Range<usize>, problem: &Problem) {
-        let span = match &problem.range {
+    /// The span of the invalid part of a string value, or the whole value.
+    fn problem_span(&self, span: Range<usize>, problem: &Problem) -> Range<usize> {
+        match &problem.range {
             Some(range) => string_span(self.text, span, range.clone()),
             None => span,
-        };
+        }
+    }
+
+    /// Reports an invalid string value, pointing at the invalid part when known.
+    fn invalid_string(&mut self, message: String, span: Range<usize>, problem: &Problem) {
+        let span = self.problem_span(span, problem);
         self.report(Diagnostic::new(Rule::InvalidValue, message, span));
     }
 }

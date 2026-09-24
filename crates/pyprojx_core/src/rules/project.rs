@@ -156,6 +156,8 @@ pub(super) fn check(context: &mut Context<'_>, root: &DeTable<'_>) {
     }
 
     check_import_names(context, table);
+    super::dependencies::check(context, table);
+    super::license::check(context, table);
 }
 
 /// Checks `project.dynamic` and returns the listed keys with their spans.

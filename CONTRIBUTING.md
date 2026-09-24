@@ -89,11 +89,13 @@ writes snapshots, so a mismatch fails the tests.
 ### Rules and severity
 
 Each diagnostic belongs to a rule with a stable kebab-case name, such as
-`invalid-toml` or `unknown-key`. Report an **error** when tools reject the
-configuration or builds fail, and a **warning** for specification violations and
-deprecations that tools tolerate. Base the choice on evidence: for example, build
-a small project with the popular backends (hatchling, setuptools) and note the
-results in the pull request.
+`invalid-toml` or `unknown-key`. Report an **error** only when the specification
+requires tools to reject the configuration (a MUST) *and* a mainstream build
+backend (hatchling or setuptools) does; report everything else, including
+deprecations and violations that backends tolerate, as a **warning**. Base the
+choice on evidence: build a small project with those backends and note the
+results in the pull request. The real-world corpus below catches cases where a
+project relies on a backend's leniency.
 
 ### Real-world corpus
 

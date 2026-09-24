@@ -74,6 +74,80 @@ pub fn check_specifiers(value: &str) -> Result<(), Problem> {
     Ok(())
 }
 
+/// The result of checking an SPDX license expression.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum LicenseExpression {
+    Valid,
+    /// Valid, but tools normalize it to this capitalization.
+    Case(String),
+    /// Valid, but uses deprecated identifiers; this is the modern form.
+    Deprecated(String),
+    /// Invalid, with a likely intended expression when one can be inferred.
+    Invalid {
+        problem: Problem,
+        suggestion: Option<String>,
+    },
+}
+
+/// Parsing that matches what Python's `packaging` accepts, which build backends
+/// use: GPL `+` suffixes and deprecated identifiers are allowed, but imprecise
+/// names such as `Apache 2.0` are not.
+const LICENSE_MODE: spdx::ParseMode = spdx::ParseMode {
+    allow_slash_as_or_operator: false,
+    allow_imprecise_license_names: false,
+    allow_postfix_plus_on_gpl: true,
+    allow_deprecated: true,
+    allow_unknown: false,
+};
+
+/// Checks an SPDX license expression, such as `MIT OR Apache-2.0`.
+pub fn check_license_expression(value: &str) -> LicenseExpression {
+    let canonical = spdx::Expression::canonicalize(value).ok().flatten();
+    match spdx::Expression::parse_mode(value, LICENSE_MODE) {
+        Ok(_) => match canonical {
+            Some(canonical) if canonical.eq_ignore_ascii_case(value) => {
+                LicenseExpression::Case(canonical)
+            }
+            Some(canonical) => LicenseExpression::Deprecated(canonical),
+            None => LicenseExpression::Valid,
+        },
+        Err(error) => match canonical {
+            // Identifiers are case-insensitive for `packaging`.
+            Some(canonical)
+                if canonical.eq_ignore_ascii_case(value)
+                    && spdx::Expression::parse_mode(&canonical, LICENSE_MODE).is_ok() =>
+            {
+                LicenseExpression::Case(canonical)
+            }
+            suggestion => LicenseExpression::Invalid {
+                problem: Problem::new(error.reason.to_string(), Some(error.span)),
+                suggestion,
+            },
+        },
+    }
+}
+
+/// Checks a glob pattern as defined for `license-files`, returning the reason
+/// it is invalid.
+pub fn check_glob_pattern(pattern: &str) -> Result<(), &'static str> {
+    if pattern.contains("..") {
+        return Err("patterns cannot contain `..`");
+    }
+    if pattern.starts_with('/') || pattern.contains(":\\") {
+        return Err("patterns must be relative and cannot start with `/`");
+    }
+    let valid_char = |char: char| {
+        char.is_alphanumeric()
+            || matches!(char, '_' | ' ' | '-' | '.' | '/' | '*' | '?' | '[' | ']')
+    };
+    if pattern.is_empty() || !pattern.chars().all(valid_char) {
+        return Err(
+            "patterns may only contain letters, digits, spaces, `_`, `-`, `.`, `/`, `*`, `?`, `[`, and `]`",
+        );
+    }
+    Ok(())
+}
+
 /// Checks a project, extra, or group name against the name format and returns
 /// its normalized form.
 pub fn normalize_name(value: &str) -> Result<String, Problem> {
@@ -107,6 +181,53 @@ mod tests {
         assert!(check_specifiers("").is_err());
         let value = ">=3.11,";
         assert_eq!(check_specifiers(value).unwrap_err().range, Some(7..7));
+    }
+
+    #[test]
+    fn license_expressions() {
+        use LicenseExpression::*;
+        assert_eq!(check_license_expression("MIT OR Apache-2.0"), Valid);
+        assert_eq!(check_license_expression("LicenseRef-Proprietary"), Valid);
+        assert_eq!(check_license_expression("mit"), Case("MIT".to_owned()));
+        assert_eq!(
+            check_license_expression("MIT or Apache-2.0"),
+            Case("MIT OR Apache-2.0".to_owned())
+        );
+        assert_eq!(
+            check_license_expression("GPL-3.0+"),
+            Deprecated("GPL-3.0-or-later".to_owned())
+        );
+        let Invalid { suggestion, .. } = check_license_expression("Apache 2.0") else {
+            panic!("expected invalid");
+        };
+        assert_eq!(suggestion.as_deref(), Some("Apache-2.0"));
+        assert!(matches!(check_license_expression(""), Invalid { .. }));
+        assert!(matches!(
+            check_license_expression("Not-A-License"),
+            Invalid { .. }
+        ));
+    }
+
+    #[test]
+    fn glob_patterns() {
+        for valid in [
+            "LICEN[CS]E*",
+            "licenses/**/*.txt",
+            "LICENSE.txt",
+            "COPYING GPL",
+        ] {
+            assert_eq!(check_glob_pattern(valid), Ok(()), "{valid}");
+        }
+        for invalid in [
+            "../LICENSE",
+            "/LICENSE",
+            "C:\\LICENSE",
+            "LICEN{CSE*",
+            "licenses\\x",
+            "",
+        ] {
+            assert!(check_glob_pattern(invalid).is_err(), "{invalid}");
+        }
     }
 
     #[test]
