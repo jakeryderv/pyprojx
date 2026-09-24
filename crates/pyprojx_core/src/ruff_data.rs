@@ -160,6 +160,7 @@ pub const RELEASES: &[&str] = &[
     "0.16.5",
     "0.16.6",
     "0.16.7",
+    "0.16.8",
 ];
 
 const T0: ValueType = ValueType::Array(&ValueType::Str);
