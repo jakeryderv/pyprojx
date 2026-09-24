@@ -58,8 +58,9 @@ CI's `--locked` Cargo commands check that the updated lockfile remains consisten
 ## One-time GitHub App setup
 
 Release Please uses a GitHub App rather than the built-in `GITHUB_TOKEN` so its
-PRs and releases trigger other workflows normally. The App is only for GitHub
-operations; PyPI authentication remains OIDC.
+PRs and releases trigger other workflows normally. The Ruff data workflow uses
+the same App to open its data-update PRs, so CI runs on them. The App is only for
+GitHub operations; PyPI authentication remains OIDC.
 
 1. Create a GitHub App under your account's **Settings → Developer settings →
    GitHub Apps**, or reuse an existing App configured as below. Choose a unique
