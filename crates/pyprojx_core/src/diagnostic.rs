@@ -11,6 +11,20 @@ pub enum Rule {
     ByteOrderMark,
     /// The file uses syntax that requires TOML 1.1.
     Toml11Syntax,
+    /// A key that the table's specification does not define.
+    UnknownKey,
+    /// A required key is missing.
+    MissingKey,
+    /// A value has the wrong TOML type.
+    InvalidType,
+    /// A value has the right type but is not valid, such as a malformed version.
+    InvalidValue,
+    /// `project.dynamic` is inconsistent with the rest of `[project]`.
+    InvalidDynamic,
+    /// Two names are the same after normalization.
+    DuplicateName,
+    /// Metadata that a specification has deprecated.
+    DeprecatedMetadata,
 }
 
 impl Rule {
@@ -20,14 +34,28 @@ impl Rule {
             Self::InvalidToml => "invalid-toml",
             Self::ByteOrderMark => "byte-order-mark",
             Self::Toml11Syntax => "toml-1-1-syntax",
+            Self::UnknownKey => "unknown-key",
+            Self::MissingKey => "missing-key",
+            Self::InvalidType => "invalid-type",
+            Self::InvalidValue => "invalid-value",
+            Self::InvalidDynamic => "invalid-dynamic",
+            Self::DuplicateName => "duplicate-name",
+            Self::DeprecatedMetadata => "deprecated-metadata",
         }
     }
 
     /// How serious this rule's diagnostics are.
     pub const fn severity(self) -> Severity {
         match self {
-            Self::InvalidToml | Self::ByteOrderMark => Severity::Error,
-            Self::Toml11Syntax => Severity::Warning,
+            Self::Toml11Syntax | Self::DeprecatedMetadata => Severity::Warning,
+            Self::InvalidToml
+            | Self::ByteOrderMark
+            | Self::UnknownKey
+            | Self::MissingKey
+            | Self::InvalidType
+            | Self::InvalidValue
+            | Self::InvalidDynamic
+            | Self::DuplicateName => Severity::Error,
         }
     }
 }
@@ -46,8 +74,17 @@ pub struct Diagnostic {
     pub message: String,
     /// Byte range in the source text. An empty range points between two characters.
     pub span: Range<usize>,
+    /// Related locations, such as where a duplicate was first defined.
+    pub labels: Vec<Label>,
     /// Optional advice on how to fix the problem.
     pub help: Option<String>,
+}
+
+/// A related source location with an explanation.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Label {
+    pub span: Range<usize>,
+    pub message: String,
 }
 
 impl Diagnostic {
@@ -56,8 +93,18 @@ impl Diagnostic {
             rule,
             message: message.into(),
             span,
+            labels: Vec::new(),
             help: None,
         }
+    }
+
+    #[must_use]
+    pub fn with_label(mut self, span: Range<usize>, message: impl Into<String>) -> Self {
+        self.labels.push(Label {
+            span,
+            message: message.into(),
+        });
+        self
     }
 
     #[must_use]

@@ -1,0 +1,137 @@
+[build-system]
+requires = ["hatchling>=1.27", "hatch-vcs>=0.3.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "hatch"
+description = "Modern, extensible Python project management"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE.txt"]
+requires-python = ">=3.10"
+keywords = [
+  "build",
+  "dependency",
+  "environment",
+  "hatch",
+  "packaging",
+  "plugin",
+  "publishing",
+  "release",
+  "versioning",
+]
+authors = [
+  { name = "Ofek Lev", email = "oss@ofek.dev" },
+  { name = "Cary Hawkins", email = "hawkinscary23@gmail.com" },
+]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "Natural Language :: English",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+  "Topic :: Software Development :: Build Tools",
+]
+dependencies = [
+  "click>=8.0.6",
+  "distro>=1.0.0; sys_platform == 'linux'",
+  "hatchling>=1.27.0",
+  "httpx2>=0.22.0",
+  "hyperlink>=21.0.0",
+  "keyring>=23.5.0",
+  "packaging>=24.2",
+  "pexpect~=4.8",
+  "python-discovery>=1.1",
+  "platformdirs>=2.5.0",
+  "pyproject-hooks",
+  "rich>=11.2.0",
+  "shellingham>=1.4.0",
+  "tomli-w>=1.0",
+  "tomlkit>=0.11.1",
+  "userpath~=1.7",
+  "uv>=0.5.23",
+  "virtualenv>=21",
+  "backports.zstd>=1.0.0 ; python_version<'3.14'",
+]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://hatch.pypa.io/latest/"
+Sponsor = "https://github.com/sponsors/ofek"
+History = "https://hatch.pypa.io/dev/history/hatch/"
+Tracker = "https://github.com/pypa/hatch/issues"
+Source = "https://github.com/pypa/hatch"
+
+[project.scripts]
+hatch = "hatch.cli:main"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.version.raw-options]
+version_scheme = "python-simplified-semver"
+local_scheme = "no-local-version"
+parentdir_prefix_version = "hatch-"
+git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "hatch-v*"]
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/hatch/_version.py"
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+  "/.github",
+  "/backend",
+  "/scripts",
+]
+
+[tool.mypy]
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+enable_error_code = ["ignore-without-code", "truthy-bool"]
+follow_imports = "normal"
+ignore_missing_imports = true
+pretty = true
+show_column_numbers = true
+warn_no_return = false
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = [
+    "*.hatchling.*",
+    "*.hatch.utils.*",
+]
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+warn_no_return = true
+
+[tool.coverage.run]
+branch = true
+source_pkgs = ["hatch", "hatchling", "tests"]
+omit = [
+  "backend/src/hatchling/__main__.py",
+  "backend/src/hatchling/bridge/*",
+  "backend/src/hatchling/cli/dep/*",
+  "backend/src/hatchling/ouroboros.py",
+  "src/hatch/__main__.py",
+  "src/hatch/cli/new/migrate.py",
+  "src/hatch/project/frontend/scripts/*",
+  "src/hatch/utils/shells.py",
+]
+
+[tool.coverage.paths]
+hatch = ["src/hatch", "*/hatch/src/hatch"]
+hatchling = ["backend/src/hatchling", "*/hatch/backend/src/hatchling"]
+tests = ["tests", "*/hatch/tests"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "no cov",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+]
