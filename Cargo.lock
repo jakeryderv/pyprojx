@@ -317,6 +317,7 @@ version = "0.0.1"
 dependencies = [
  "toml",
  "toml-test-data",
+ "toml_parser",
 ]
 
 [[package]]

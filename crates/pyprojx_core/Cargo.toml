@@ -11,6 +11,7 @@ publish = false
 
 [dependencies]
 toml.workspace = true
+toml_parser.workspace = true
 
 [dev-dependencies]
 toml-test-data.workspace = true
