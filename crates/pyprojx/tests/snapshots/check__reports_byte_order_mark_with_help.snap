@@ -1,0 +1,23 @@
+---
+source: crates/pyprojx/tests/check.rs
+info:
+  program: pyprojx
+  args:
+    - check
+  env:
+    NO_COLOR: "1"
+---
+success: false
+exit_code: 1
+----- stdout -----
+error[byte-order-mark]: file starts with a UTF-8 byte order mark
+ --> pyproject.toml:1:1
+  |
+1 | ﻿[project]
+  | ^
+  |
+  = help: tomllib (used by pip and most build backends) and uv reject it; save the file as UTF-8 without a byte order mark
+
+Found 1 error.
+
+----- stderr -----

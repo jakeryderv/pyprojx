@@ -26,10 +26,26 @@ source linting, or type checking.
 
 ## Current status
 
-**pyprojx is a development stub.** The `pyprojx` command only prints its help and
-version; the capabilities above are not implemented yet. The
+**pyprojx is in early development.** `pyprojx check` reports TOML syntax errors,
+invalid UTF-8, and byte order marks in `pyproject.toml`; the other capabilities
+above are not implemented yet. The
 [0.0.1 release](https://pypi.org/project/pyprojx/0.0.1/) on PyPI is a
 placeholder that predates the command.
+
+```text
+$ pyprojx check
+error[invalid-toml]: missing value
+ --> pyproject.toml:2:14
+  |
+2 | line-length =
+  |              ^
+
+Found 1 error.
+```
+
+`pyprojx check` checks the nearest `pyproject.toml` in the current directory or
+its parents, or the file or directory you pass. It exits with 0 when there are no
+errors, 1 when there are, and 2 when the file cannot be checked.
 
 pyprojx is written in Rust and will be distributed on PyPI as prebuilt binaries,
 like Ruff and uv, so no Rust toolchain is needed to install it. Once released,

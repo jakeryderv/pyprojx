@@ -1,0 +1,33 @@
+---
+source: crates/pyprojx/tests/check.rs
+info:
+  program: pyprojx
+  args:
+    - check
+  env:
+    NO_COLOR: "1"
+---
+success: false
+exit_code: 1
+----- stdout -----
+error[invalid-toml]: missing value
+ --> pyproject.toml:2:14
+  |
+2 | line-length =
+  |              ^
+
+error[invalid-toml]: missing comma between array elements, expected `,`
+ --> pyproject.toml:3:15
+  |
+3 | select = ["E" "F"]
+  |               ^
+
+error[invalid-toml]: duplicate key `name`
+ --> pyproject.toml:7:1
+  |
+7 | name = "b"
+  | ^^^^
+
+Found 3 errors.
+
+----- stderr -----
