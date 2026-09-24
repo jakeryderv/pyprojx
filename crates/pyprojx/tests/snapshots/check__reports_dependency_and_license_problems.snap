@@ -24,7 +24,7 @@ error[invalid-value]: invalid requirement: Operator >= cannot be used with a wil
 5 | dependencies = ["requests >= 2.3.*"]
   |                           ^^^^^^^^
 
-warning[deprecated-metadata]: `License ::` classifiers are deprecated
+warning[unsupported-feature]: setuptools does not support `License ::` classifiers alongside a license expression, as of 84.0.0
  --> pyproject.toml:6:16
   |
 4 | license = "Apache 2.0"
@@ -33,7 +33,7 @@ warning[deprecated-metadata]: `License ::` classifiers are deprecated
 6 | classifiers = ["License :: OSI Approved :: Apache Software License"]
   |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   |
-  = help: remove the classifier; the license expression replaces it, and setuptools rejects the combination
+  = help: remove the `License ::` classifiers, which are deprecated; the license expression replaces them (without `[build-system]`, tools build with setuptools)
 
 Found 2 errors and 1 warning.
 

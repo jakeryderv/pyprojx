@@ -96,6 +96,21 @@ FEATURES = [
         "2.4",
         files={"TERMS.txt": "Terms\n"},
     ),
+    # PEP 794, as a whole: `import-namespaces` needs a namespace package to
+    # match, which differs between backends, so only `import-names` is built.
+    Feature("ImportNames", 'import-names = ["demo"]', ("Import-Name: demo",), "2.5"),
+    # PEP 808: a static key also listed in `dynamic`, with nothing to extend it.
+    Feature(
+        "DynamicExtension",
+        'dependencies = ["requests"]\ndynamic = ["dependencies"]',
+        ("Requires-Dist: requests",),
+    ),
+    # The license specification lets backends reject this combination.
+    Feature(
+        "LicenseClassifiers",
+        'license = "MIT"\nclassifiers = ["License :: OSI Approved :: MIT License"]',
+        ("Classifier: License :: OSI Approved :: MIT License",),
+    ),
 ]
 
 
@@ -103,24 +118,49 @@ FEATURES = [
 class Result:
     backend: str
     feature: str
-    # The last release without the feature and the first with it; `None` for
-    # either when every release, or none, supports it.
-    before: str | None
-    since: str | None
+    history: list[tuple[Version, str]]
+    # Releases from `boundary` on support the feature if `gained`, and lack it
+    # if not; earlier releases do the opposite.
+    boundary: int
+    gained: bool
     probes: dict[Version, str]
+    # Releases lacking the feature, next to the boundary or the latest, that
+    # also fail to build without it. That is expected only for releases that do
+    # not read `[project]`.
+    baseline_fails: list[Version] = field(default_factory=list)
     problem: str = ""
     # Whether builds fail with every checked release that reads `[project]` but
     # lacks the feature, rather than leaving the feature out of the metadata.
     fails: bool = False
 
+    def version(self, index: int) -> Version:
+        return self.history[index][0]
 
-def set_fails(results: list[Result]) -> None:
-    """Sets `fails` for each result, from the releases that read `[project]`."""
+    def summary(self) -> str:
+        if not self.gained:
+            return f"none from {self.version(self.boundary)}"
+        return "all" if self.boundary == 0 else str(self.version(self.boundary))
+
+    def rust(self) -> str:
+        if not self.gained:
+            return f"Since::Never {{ from: {rust_string(str(self.version(self.boundary)))} }}"
+        if self.boundary == 0:
+            return "Since::First"
+        before = rust_string(str(self.version(self.boundary - 1)))
+        version = rust_string(str(self.version(self.boundary)))
+        return f"Since::Version {{ before: {before}, version: {version} }}"
+
+
+def check_results(results: list[Result]) -> None:
+    """Sets `fails`, and problems with baselines, using when each backend reads `[project]`."""
     for backend in BACKENDS:
         rows = [row for row in results if row.backend == backend.name]
         project = next(row for row in rows if row.feature == "ProjectTable")
-        reads_project = Version(project.since) if project.before else Version("0")
+        reads_project = project.version(project.boundary if project.gained else 0)
         for row in rows:
+            unexpected = [v for v in row.baseline_fails if v >= reads_project]
+            if unexpected and not row.problem:
+                row.problem = f"{unexpected[0]} fails without the feature too"
             if row.feature == "ProjectTable":
                 # The demo project has no backend-specific metadata, so builds
                 # fail where real projects might fall back to it.
@@ -255,47 +295,42 @@ def calibrate(
         return build(backend, version, uploaded, None) == SUPPORTED
 
     last = len(history) - 1
-    if not supports(last):
-        threshold = last + 1
-        if not works_without_feature(last):
-            return Result(
-                backend.name,
-                feature.variant,
-                None,
-                None,
-                probes,
-                "the latest release fails without the feature too",
-            )
-    elif supports(0):
-        threshold = 0
-    else:
-        low, high = 0, last  # `low` fails and `high` passes
+    gained = supports(last)
+    boundary = 0
+    if supports(0) != gained:
+        low, high = 0, last  # `high` behaves like the latest release, `low` does not
         while high - low > 1:
             middle = (low + high) // 2
-            if supports(middle):
+            if supports(middle) == gained:
                 high = middle
             else:
                 low = middle
-        threshold = high
-        # `[project]` is what the baseline build uses, so it cannot be checked this way.
-        if feature.variant != "ProjectTable" and not works_without_feature(low):
-            problem = f"{history[low][0]} fails without the feature too"
-            return Result(backend.name, feature.variant, None, None, probes, problem)
+        boundary = high
+    result = Result(backend.name, feature.variant, history, boundary, gained, probes)
+
+    # Show that releases lacking the feature lack it, rather than failing for
+    # other reasons: the latest if none support it, and the release lacking it
+    # next to the boundary. `[project]` is what these builds use, so it cannot
+    # be checked this way.
+    if feature.variant != "ProjectTable":
+        lacking = set() if gained else {last}
+        if boundary > 0:
+            lacking.add(boundary - 1 if gained else boundary)
+        result.baseline_fails = [
+            history[index][0]
+            for index in sorted(lacking)
+            if not works_without_feature(index)
+        ]
 
     inconsistent = [
         history[index][0]
-        for index in spread(range(threshold), samples)
-        + spread(range(threshold, last + 1), samples)
-        if supports(index) != (index >= threshold)
+        for index in spread(range(boundary), samples)
+        + spread(range(boundary, last + 1), samples)
+        if supports(index) != ((index >= boundary) == gained)
     ]
-    before = str(history[threshold - 1][0]) if threshold > 0 else None
-    since = str(history[threshold][0]) if threshold <= last else None
-    problem = (
-        f"not monotonic; see {', '.join(map(str, inconsistent))}"
-        if inconsistent
-        else ""
-    )
-    return Result(backend.name, feature.variant, before, since, probes, problem)
+    if inconsistent:
+        result.problem = f"not monotonic; see {', '.join(map(str, inconsistent))}"
+    return result
 
 
 def rust_string(value: str) -> str:
@@ -327,12 +362,7 @@ def generate(
             builds = ", ".join(
                 f"{v} {outcome}" for v, outcome in sorted(row.probes.items())
             )
-            if row.before is None:
-                since = "Since::First"
-            elif row.since is None:
-                since = "Since::Never"
-            else:
-                since = f"Since::Version {{ before: {rust_string(row.before)}, version: {rust_string(row.since)} }}"
+            since = row.rust()
             lines += [
                 f"            // Supported: {builds}.",
                 f"            FeatureSupport {{ feature: Feature::{row.feature}, since: {since}, fails: {str(row.fails).lower()} }},",
@@ -370,10 +400,10 @@ def main() -> int:
             for feature in FEATURES
         ]
         results = [future.result() for future in futures]
-    set_fails(results)
+    check_results(results)
 
     for row in results:
-        since = "first" if row.before is None else row.since or "never"
+        since = row.summary()
         problem = f"  UNVERIFIED: {row.problem}" if row.problem else ""
         fails = "fails" if row.fails else ""
         print(

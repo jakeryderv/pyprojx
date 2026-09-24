@@ -182,10 +182,13 @@ fn quoted_list(items: &[&str]) -> String {
 #[cfg(test)]
 pub(crate) mod test_support {
     /// Checks `text` and returns each diagnostic as (rule name, message, spanned text).
+    ///
+    /// Leaves out build backend compatibility, which `compatibility` tests.
     pub fn diagnostics(text: &str) -> Vec<(&'static str, String, &str)> {
         crate::check(text.as_bytes().to_vec())
             .diagnostics
             .into_iter()
+            .filter(|diagnostic| diagnostic.rule != crate::Rule::UnsupportedFeature)
             .map(|diagnostic| {
                 (
                     diagnostic.rule.name(),

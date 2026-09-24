@@ -9,7 +9,7 @@ use std::ops::Range;
 use std::str::FromStr;
 
 use uv_normalize::PackageName;
-use uv_pep440::{Version, VersionSpecifier};
+use uv_pep440::{Operator, Version, VersionSpecifier};
 use uv_pep508::{Requirement, VerbatimUrl, VersionOrUrl};
 use version_ranges::Ranges;
 
@@ -166,7 +166,8 @@ pub fn allows_python_minor(specifiers: &str, major: u64, minor: u64) -> Option<b
 /// A set of versions, such as those a requirement allows.
 ///
 /// Constructors taking version strings are for embedded data, and panic if the
-/// versions are invalid.
+/// versions are invalid. A release includes its local versions, such as
+/// `1.0+ubuntu1` for `1.0`, as `==1.0` does.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VersionSet(Ranges<Version>);
 
@@ -177,17 +178,13 @@ impl VersionSet {
 
     /// Versions from `from` through `through`, inclusive.
     pub fn from_through(from: &str, through: &str) -> Self {
-        Self(Ranges::from_range_bounds(
-            parse_known(from)..=parse_known(through),
-        ))
+        Self(Ranges::higher_than(parse_known(from)).intersection(&through_release(through)))
     }
 
     /// Versions strictly between `after` and `before`.
     pub fn between(after: &str, before: &str) -> Self {
-        Self(
-            Ranges::strictly_higher_than(parse_known(after))
-                .intersection(&Ranges::strictly_lower_than(parse_known(before))),
-        )
+        let before = Ranges::strictly_lower_than(parse_known(before));
+        Self(before.difference(&through_release(after)))
     }
 
     /// Versions before `version`.
@@ -222,6 +219,14 @@ impl VersionSet {
     pub fn is_subset_of(&self, other: &Self) -> bool {
         self.0.subset_of(&other.0)
     }
+}
+
+/// Versions up to and including `version` and its local versions, as
+/// `<=version` allows.
+fn through_release(version: &str) -> Ranges<Version> {
+    let specifier = VersionSpecifier::from_version(Operator::LessThanEqual, parse_known(version))
+        .expect("`<=` accepts any version without a local part");
+    Ranges::from(specifier)
 }
 
 fn parse_known(version: &str) -> Version {

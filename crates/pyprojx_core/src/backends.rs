@@ -12,15 +12,52 @@ pub enum Feature {
     ProjectTable,
     LicenseExpression,
     LicenseFiles,
+    /// `import-names` and `import-namespaces` (PEP 794).
+    ImportNames,
+    /// A static key also listed in `dynamic` (PEP 808).
+    DynamicExtension,
+    /// `License ::` classifiers alongside a license expression, which the
+    /// specification lets backends reject.
+    LicenseClassifiers,
 }
 
 impl Feature {
+    pub const ALL: [Self; 6] = [
+        Self::ProjectTable,
+        Self::LicenseExpression,
+        Self::LicenseFiles,
+        Self::ImportNames,
+        Self::DynamicExtension,
+        Self::LicenseClassifiers,
+    ];
+
     /// Describes the feature in diagnostics.
     pub fn description(self) -> &'static str {
         match self {
             Self::ProjectTable => "the `[project]` table",
             Self::LicenseExpression => "license expressions in `project.license`",
             Self::LicenseFiles => "`project.license-files`",
+            Self::ImportNames => "`import-names` and `import-namespaces` (PEP 794)",
+            Self::DynamicExtension => {
+                "extending a static key listed in `project.dynamic` (PEP 808)"
+            }
+            Self::LicenseClassifiers => "`License ::` classifiers alongside a license expression",
+        }
+    }
+
+    /// How to fix a project whose backend lacks the feature in every version.
+    pub fn fix(self) -> &'static str {
+        match self {
+            Self::ProjectTable | Self::LicenseExpression | Self::LicenseFiles => {
+                "use a build backend that supports it"
+            }
+            Self::ImportNames => "remove it, or use a build backend that supports it",
+            Self::DynamicExtension => {
+                "set the key statically or list it in `project.dynamic`, not both"
+            }
+            Self::LicenseClassifiers => {
+                "remove the `License ::` classifiers, which are deprecated; the license expression replaces them"
+            }
         }
     }
 }
@@ -35,8 +72,9 @@ pub enum Since {
         before: &'static str,
         version: &'static str,
     },
-    /// No known release.
-    Never,
+    /// No release from `from` on. Earlier releases, if any, accepted it
+    /// without checking it, and pyprojx says nothing about them.
+    Never { from: &'static str },
 }
 
 /// Which releases of a backend support a feature, and what the others do.
@@ -78,7 +116,7 @@ impl BackendData {
     pub fn reads_project(&self) -> &'static str {
         match self.support(Feature::ProjectTable).since {
             Since::Version { version, .. } => version,
-            Since::First | Since::Never => self.first,
+            Since::First | Since::Never { .. } => self.first,
         }
     }
 }
@@ -111,7 +149,8 @@ mod tests {
                     .iter()
                     .flat_map(|support| match support.since {
                         Since::Version { before, version } => vec![before, version],
-                        _ => vec![],
+                        Since::Never { from } => vec![from],
+                        Since::First => vec![],
                     }),
             );
             for version in versions {
@@ -125,11 +164,7 @@ mod tests {
                 by_name(backend.name).map(|b| b.module),
                 Some(backend.module)
             );
-            for feature in [
-                Feature::ProjectTable,
-                Feature::LicenseExpression,
-                Feature::LicenseFiles,
-            ] {
+            for feature in Feature::ALL {
                 backend.support(feature);
             }
         }

@@ -88,10 +88,11 @@ pub(super) fn check(context: &mut Context<'_>, project: &DeTable<'_>) {
             )
             .with_help("use an SPDX license expression in `project.license` instead (PEP 639)");
             if let Some(expression) = &expression_span {
-                // The specification lets backends reject this; setuptools does.
+                // The specification lets backends reject this, which the
+                // compatibility checks report.
                 diagnostic = diagnostic
                     .with_label(expression.clone(), "license expression set here")
-                    .with_help("remove the classifier; the license expression replaces it, and setuptools rejects the combination");
+                    .with_help("remove the classifier; the license expression replaces it");
             }
             context.report(diagnostic);
         }
@@ -151,6 +152,7 @@ mod tests {
         crate::check(text.as_bytes().to_vec())
             .diagnostics
             .into_iter()
+            .filter(|d| d.rule != crate::Rule::UnsupportedFeature)
             .map(|d| (d.rule.name(), d.severity(), text[d.span].to_owned()))
             .collect()
     }
@@ -208,15 +210,23 @@ mod tests {
                 classifier.to_owned()
             )]
         );
+        // Backends that reject the combination get a compatibility diagnostic
+        // instead, such as setuptools, which builds projects without
+        // `[build-system]`.
+        let text = format!(
+            "[build-system]\nrequires = [\"hatchling\"]\nbuild-backend = \"hatchling.build\"\n[project]\nname = \"demo\"\nversion = \"1\"\nlicense = \"MIT\"\nclassifiers = [{classifier}]\n"
+        );
+        let found: Vec<_> = crate::check(text.as_bytes().to_vec())
+            .diagnostics
+            .into_iter()
+            .map(|d| (d.rule.name(), d.severity()))
+            .collect();
+        assert_eq!(found, [("deprecated-metadata", Severity::Warning)]);
         assert_eq!(
             project(&format!(
                 "license = \"MIT\"\nclassifiers = [{classifier}]\n"
             )),
-            [(
-                "deprecated-metadata",
-                Severity::Warning,
-                classifier.to_owned()
-            )]
+            []
         );
     }
 
