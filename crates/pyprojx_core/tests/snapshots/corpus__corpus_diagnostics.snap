@@ -2,4 +2,5 @@
 source: crates/pyprojx_core/tests/corpus.rs
 expression: report
 ---
-20 files, 0 diagnostics
+matplotlib.toml:5:11: warning[invalid-value] `project.authors` names should not contain commas
+20 files, 1 diagnostics

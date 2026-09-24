@@ -135,3 +135,11 @@ fn reports_build_system_problems() {
     );
     snapshot!(project.check());
 }
+
+#[test]
+fn reports_project_problems_with_labels() {
+    let project = Project::with_pyproject(
+        b"[project]\nname = \"demo\"\nversion = \"0.1.0\"\ndynamic = [\"version\"]\nrequires_python = \">=3.11\"\n",
+    );
+    snapshot!(project.check());
+}
