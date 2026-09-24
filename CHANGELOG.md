@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0](https://github.com/jakeryderv/pyprojx/compare/v0.2.0...v0.3.0) (2026-09-24)
+
+
+### Features
+
+* check PEP 794, PEP 808, and license classifiers against the backend ([#17](https://github.com/jakeryderv/pyprojx/issues/17)) ([87d8401](https://github.com/jakeryderv/pyprojx/commit/87d8401cf2e70de89ba3fbba9e7b0f8249046fb8))
+* report features the build backend versions lack ([#15](https://github.com/jakeryderv/pyprojx/issues/15)) ([dc831c3](https://github.com/jakeryderv/pyprojx/commit/dc831c3937456f0da27ff7262e3d0b24314e83ea))
+
 ## [0.2.0](https://github.com/jakeryderv/pyprojx/compare/v0.1.0...v0.2.0) (2026-09-24)
 
 
