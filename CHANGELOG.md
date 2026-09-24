@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.4.0](https://github.com/jakeryderv/pyprojx/compare/v0.3.0...v0.4.0) (2026-09-24)
+
+
+### Features
+
+* check [tool.ruff] options against the allowed Ruff versions ([#19](https://github.com/jakeryderv/pyprojx/issues/19)) ([db49acb](https://github.com/jakeryderv/pyprojx/commit/db49acbbc3533d433b01dfe1c537ead375f0ffa2))
+* check Ruff option values against the allowed versions ([#22](https://github.com/jakeryderv/pyprojx/issues/22)) ([d2c34b0](https://github.com/jakeryderv/pyprojx/commit/d2c34b00c318051a96c9b6647dee7bdc8a9ca96f))
+* check Ruff rule selectors against the allowed versions ([#21](https://github.com/jakeryderv/pyprojx/issues/21)) ([3bdb885](https://github.com/jakeryderv/pyprojx/commit/3bdb88533b7324ef5576251ebe65d566e29eafc8))
+
 ## [0.3.0](https://github.com/jakeryderv/pyprojx/compare/v0.2.0...v0.3.0) (2026-09-24)
 
 
