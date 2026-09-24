@@ -30,8 +30,9 @@ source linting, or type checking.
 invalid UTF-8, and byte order marks in `pyproject.toml`, warns about TOML 1.1
 syntax that `tomllib` in Python 3.14 and earlier rejects, and validates
 `[build-system]`, `[project]` (including dependencies, extras, license metadata,
-and trove classifiers), and `[dependency-groups]`; the other capabilities above
-are not implemented yet. The
+and trove classifiers), and `[dependency-groups]`. It also reports features, such
+as license expressions, that the build backend versions allowed by
+`[build-system]` lack. The other capabilities above are not implemented yet. The
 [0.0.1 release](https://pypi.org/project/pyprojx/0.0.1/) on PyPI is a
 placeholder that predates the command.
 

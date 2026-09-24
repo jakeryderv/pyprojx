@@ -1,0 +1,26 @@
+---
+source: crates/pyprojx/tests/check.rs
+info:
+  program: pyprojx
+  args:
+    - check
+  env:
+    NO_COLOR: "1"
+---
+success: false
+exit_code: 1
+----- stdout -----
+error[unsupported-feature]: no setuptools version allowed by `[build-system]` supports license expressions in `project.license`
+ --> pyproject.toml:8:11
+  |
+2 | requires = ["setuptools>=61,<77"]
+  |             -------------------- allows only versions before 77.0.1
+...
+8 | license = "MIT"
+  |           ^^^^^
+  |
+  = help: require `setuptools>=77.0.1`; builds with earlier versions fail
+
+Found 1 error.
+
+----- stderr -----

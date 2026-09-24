@@ -842,6 +842,7 @@ dependencies = [
 name = "pyprojx_core"
 version = "0.2.0"
 dependencies = [
+ "astral-version-ranges",
  "insta",
  "spdx",
  "strsim",

@@ -10,7 +10,8 @@ use std::str::FromStr;
 
 use uv_normalize::PackageName;
 use uv_pep440::{Version, VersionSpecifier};
-use uv_pep508::{Requirement, VerbatimUrl};
+use uv_pep508::{Requirement, VerbatimUrl, VersionOrUrl};
+use version_ranges::Ranges;
 
 /// Why a string is invalid.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -151,15 +152,96 @@ pub fn check_glob_pattern(pattern: &str) -> Result<(), &'static str> {
 /// Whether `specifiers` allow some release of Python `major.minor`, or `None`
 /// if they are invalid.
 ///
-/// Checks the first, a middle, and a late patch release, so lower bounds such as
-/// `>=3.8.1` still count as supporting 3.8.
+/// Any patch release counts, so lower bounds such as `>=3.8.1` still allow 3.8.
 pub fn allows_python_minor(specifiers: &str, major: u64, minor: u64) -> Option<bool> {
     let specifiers = uv_pep440::VersionSpecifiers::from_str(specifiers).ok()?;
-    Some(
-        [0, 1, 99]
-            .into_iter()
-            .any(|patch| specifiers.contains(&Version::new([major, minor, patch]))),
-    )
+    let allowed = uv_pep440::release_specifiers_to_ranges(specifiers);
+    let series = Ranges::between(
+        Version::new([major, minor]),
+        Version::new([major, minor + 1]),
+    );
+    Some(!allowed.is_disjoint(&series))
+}
+
+/// A set of versions, such as those a requirement allows.
+///
+/// Constructors taking version strings are for embedded data, and panic if the
+/// versions are invalid.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct VersionSet(Ranges<Version>);
+
+impl VersionSet {
+    pub fn empty() -> Self {
+        Self(Ranges::empty())
+    }
+
+    /// Versions from `from` through `through`, inclusive.
+    pub fn from_through(from: &str, through: &str) -> Self {
+        Self(Ranges::from_range_bounds(
+            parse_known(from)..=parse_known(through),
+        ))
+    }
+
+    /// Versions strictly between `after` and `before`.
+    pub fn between(after: &str, before: &str) -> Self {
+        Self(
+            Ranges::strictly_higher_than(parse_known(after))
+                .intersection(&Ranges::strictly_lower_than(parse_known(before))),
+        )
+    }
+
+    /// Versions before `version`.
+    pub fn before(version: &str) -> Self {
+        Self(Ranges::strictly_lower_than(parse_known(version)))
+    }
+
+    /// `version` and later versions.
+    pub fn at_least(version: &str) -> Self {
+        Self(Ranges::higher_than(parse_known(version)))
+    }
+
+    #[must_use]
+    pub fn union(&self, other: &Self) -> Self {
+        Self(self.0.union(&other.0))
+    }
+
+    #[must_use]
+    pub fn intersection(&self, other: &Self) -> Self {
+        Self(self.0.intersection(&other.0))
+    }
+
+    #[must_use]
+    pub fn difference(&self, other: &Self) -> Self {
+        Self(self.0.difference(&other.0))
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub fn is_subset_of(&self, other: &Self) -> bool {
+        self.0.subset_of(&other.0)
+    }
+}
+
+fn parse_known(version: &str) -> Version {
+    Version::from_str(version).expect("embedded versions are valid")
+}
+
+/// The normalized package name of a requirement, and the versions it allows
+/// or `None` if it has no version specifiers. Returns `None` for invalid
+/// requirements and requirements for a URL.
+pub fn required_versions(value: &str) -> Option<(String, Option<VersionSet>)> {
+    let requirement = Requirement::<VerbatimUrl>::from_str(value).ok()?;
+    let versions = match requirement.version_or_url {
+        None => None,
+        Some(VersionOrUrl::VersionSpecifier(specifiers)) if specifiers.is_empty() => None,
+        Some(VersionOrUrl::VersionSpecifier(specifiers)) => {
+            Some(VersionSet(Ranges::from(specifiers)))
+        }
+        Some(VersionOrUrl::Url(_)) => return None,
+    };
+    Some((requirement.name.to_string(), versions))
 }
 
 /// Checks a project, extra, or group name against the name format and returns
