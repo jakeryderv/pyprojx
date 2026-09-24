@@ -124,13 +124,24 @@ across releases; investigate those by hand.
 
 ### Ruff data
 
-`crates/pyprojx_core/src/ruff_data.rs` records which Ruff releases accept and
-deprecate each option. It is generated from the configuration schema of every
-release since 0.1.0, which the script caches, so later runs only download new
-releases. Regenerate it after Ruff releases:
+`crates/pyprojx_core/src/ruff_data.rs` records which Ruff releases accept each
+option and rule selector, which deprecate each option and rule, and which rules
+are in preview. It is generated from the configuration schema of every release
+since 0.1.0, the latest release's rule metadata, and, for removed rules, the
+release that started warning about them, found by running Ruff. The script
+caches what it downloads and measures, so later runs only fetch new releases.
+Regenerate it after Ruff releases:
 
 ```sh
 uv run scripts/update_ruff_data.py
+```
+
+To check the rule selector checks against Ruff itself, build pyprojx and
+compare the two on a sample of selectors across releases:
+
+```sh
+cargo build
+uv run scripts/compare_with_ruff.py 0.16.8 0.12.0 0.5.0 0.1.0
 ```
 
 ### Trove classifiers

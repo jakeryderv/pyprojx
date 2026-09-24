@@ -18,7 +18,7 @@ error[unknown-key]: unknown key `line-lenght` in `[tool.ruff]`
   |
   = help: did you mean `line-length`?
 
-warning[deprecated-option]: linter settings at the top level of `[tool.ruff]` are deprecated
+warning[deprecated-setting]: linter settings at the top level of `[tool.ruff]` are deprecated
  --> pyproject.toml:6:1
   |
 6 | select = ["E"]
