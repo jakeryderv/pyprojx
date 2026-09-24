@@ -32,9 +32,7 @@ syntax that `tomllib` in Python 3.14 and earlier rejects, and validates
 `[build-system]`, `[project]` (including dependencies, extras, license metadata,
 and trove classifiers), and `[dependency-groups]`. It also reports features, such
 as license expressions, that the build backend versions allowed by
-`[build-system]` lack. The other capabilities above are not implemented yet. The
-[0.0.1 release](https://pypi.org/project/pyprojx/0.0.1/) on PyPI is a
-placeholder that predates the command.
+`[build-system]` lack. The other capabilities above are not implemented yet.
 
 ```text
 $ pyprojx check
@@ -52,9 +50,9 @@ its parents, or the file or directory you pass. It exits with 0 when there are n
 errors (warnings do not fail the check), 1 when there are, and 2 when the file
 cannot be checked.
 
-pyprojx is written in Rust and will be distributed on PyPI as prebuilt binaries,
-like Ruff and uv, so no Rust toolchain is needed to install it. Once released,
-run it with `uvx pyprojx` or install it with `uv tool install pyprojx`.
+pyprojx is written in Rust and distributed on PyPI as prebuilt binaries, like
+Ruff and uv, so no Rust toolchain is needed to install it. Run it with
+`uvx pyprojx check`, or install it with `uv tool install pyprojx`.
 
 ## Learn more and contribute
 
