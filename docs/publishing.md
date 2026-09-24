@@ -18,8 +18,8 @@ checks and distribution validation.
    commit and publishes its tested distributions to PyPI.
 
 **Merging a release PR authorizes publication.** There is no additional `pypi`
-environment approval. Tags and GitHub Releases are automated once the GitHub App
-below is configured; ordinary tag pushes no longer trigger PyPI publication.
+environment approval. Tags and GitHub Releases are created automatically, and
+ordinary tag pushes do not trigger PyPI publication.
 
 ## Versioning policy
 
@@ -144,5 +144,5 @@ artifacts and test installation from PyPI in an isolated environment.
 - **Release Please has no credentials:** complete the App setup above. Keep PyPI
   token secrets out of this process.
 
-Version `0.0.1` is already published. Setting up this automation does not require
-another release. A stub publication does not guarantee permanent name ownership.
+Version `0.0.1` was a placeholder published by hand; releases from `0.1.0` on were
+published by this automation.
