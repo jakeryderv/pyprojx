@@ -55,6 +55,7 @@ cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo test --workspace --locked
 uv lock --check
 uv run --locked pre-commit validate-config
+uv run --locked python scripts/update_classifiers.py --check
 ```
 
 Use `cargo run -- <args>` to try the CLI, for example `cargo run -- --version`.
@@ -97,6 +98,16 @@ deprecations, configurations the specification advises against, and violations
 that tools tolerate. Base the choice on evidence: try a small project with those
 tools and note the results in the pull request. The real-world corpus below
 catches cases where a project relies on a tool's leniency.
+
+### Trove classifiers
+
+`crates/pyprojx_core/src/trove_data.rs` is generated from the `trove-classifiers`
+package locked in `uv.lock`. When Dependabot updates that package, CI fails until
+the file is regenerated:
+
+```sh
+uv run --locked python scripts/update_classifiers.py
+```
 
 ### Real-world corpus
 

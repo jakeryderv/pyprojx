@@ -159,3 +159,11 @@ fn reports_dependency_group_problems() {
     );
     snapshot!(project.check());
 }
+
+#[test]
+fn reports_classifier_problems() {
+    let project = Project::with_pyproject(
+        b"[project]\nname = \"demo\"\nversion = \"0.1.0\"\nrequires-python = \">=3.11\"\nclassifiers = [\n  \"Programming Language :: Pythn :: 3\",\n  \"Programming Language :: Python :: 3.10\",\n]\n",
+    );
+    snapshot!(project.check());
+}

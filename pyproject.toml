@@ -30,7 +30,10 @@ bindings = "bin"
 manifest-path = "crates/pyprojx/Cargo.toml"
 
 [dependency-groups]
-dev = ["pre-commit>=4.6.2"]
+dev = [
+    "pre-commit>=4.6.2",
+    "trove-classifiers>=2026.9.21.13",
+]
 
 [tool.uv]
 # The project is a Rust binary; `uv sync` only installs development tools.

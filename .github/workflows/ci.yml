@@ -33,6 +33,8 @@ jobs:
           enable-cache: false
       - run: uv lock --check
       - run: uv run --locked pre-commit validate-config
+      - name: Check embedded trove classifiers match uv.lock
+        run: uv run --locked python scripts/update_classifiers.py --check
 
   tests:
     name: Tests (${{ matrix.os }})
