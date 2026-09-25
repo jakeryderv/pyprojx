@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.0](https://github.com/jakeryderv/pyprojx/compare/v0.5.0...v0.6.0) (2026-09-25)
+
+
+### Features
+
+* check tool settings against the versions locked in uv.lock or pylock.toml ([#31](https://github.com/jakeryderv/pyprojx/issues/31)) ([920838d](https://github.com/jakeryderv/pyprojx/commit/920838dec0aa32948e10312d9cd8eb9c0532f7cb))
+* fix problems with pyprojx check --fix ([#33](https://github.com/jakeryderv/pyprojx/issues/33)) ([879d259](https://github.com/jakeryderv/pyprojx/commit/879d2595681581850f95303f808b01fa423bc2e0))
+
 ## [0.5.0](https://github.com/jakeryderv/pyprojx/compare/v0.4.0...v0.5.0) (2026-09-24)
 
 
