@@ -74,6 +74,12 @@ pyprojx is written in Rust and distributed on PyPI as prebuilt binaries, like
 Ruff and uv, so no Rust toolchain is needed to install it. Run it with
 `uvx pyprojx check`, or install it with `uv tool install pyprojx`.
 
+## Use in your editor
+
+`pyprojx server` is a language server: in Neovim, Helix, Emacs, and other
+editors that support language servers, it checks `pyproject.toml` as you type
+and offers quick fixes. See [editor setup](docs/editors.md).
+
 ## Use in pre-commit and CI
 
 To run pyprojx with [pre-commit](https://pre-commit.com), add a local hook to
