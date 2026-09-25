@@ -17,7 +17,7 @@ error[invalid-value]: undefined dependency group `test`
    |                   ^^^^^^
    |
    = help: `uv sync` fails when a default group does not exist
-   = note: checked against uv 0.12.18, the latest release pyprojx knows; set `required-version` to check the version you use
+   = note: checked against uv [latest], the latest release pyprojx knows; set `required-version` to check the version you use
 
 error[invalid-value]: undefined index `pytorch-cu`
   --> pyproject.toml:13:19
@@ -26,7 +26,7 @@ error[invalid-value]: undefined index `pytorch-cu`
    |                   ^^^^^^^^^^^^
    |
    = help: did you mean `pytorch-cpu`? uv fails when a source names an index that `[[tool.uv.index]]` does not declare
-   = note: checked against uv 0.12.18, the latest release pyprojx knows; set `required-version` to check the version you use
+   = note: checked against uv [latest], the latest release pyprojx knows; set `required-version` to check the version you use
 
 warning[ineffective-setting]: `requests` is not a dependency of the project, so uv ignores its source
   --> pyproject.toml:14:1
@@ -35,7 +35,7 @@ warning[ineffective-setting]: `requests` is not a dependency of the project, so 
    | ^^^^^^^^
    |
    = help: add it to the project's dependencies, or remove the source
-   = note: checked against uv 0.12.18, the latest release pyprojx knows; set `required-version` to check the version you use
+   = note: checked against uv [latest], the latest release pyprojx knows; set `required-version` to check the version you use
 
 error[invalid-value]: the Git source for `requests` sets `tag` and `branch`
   --> pyproject.toml:14:12
@@ -44,7 +44,7 @@ error[invalid-value]: the Git source for `requests` sets `tag` and `branch`
    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: set only one of `rev`, `tag`, and `branch`
-   = note: checked against uv 0.12.18, the latest release pyprojx knows; set `required-version` to check the version you use
+   = note: checked against uv [latest], the latest release pyprojx knows; set `required-version` to check the version you use
 
 Found 3 errors and 1 warning.
 1 problem is fixable with `--fix --unsafe-fixes`.

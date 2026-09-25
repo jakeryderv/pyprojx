@@ -46,10 +46,38 @@ impl Project {
     }
 }
 
-/// Makes output with paths identical across platforms.
+/// Output filters: paths identical across platforms, and each tool's latest
+/// known release as `[latest]`, so that updating the tool data, which adds
+/// releases, does not change snapshots.
+fn filters() -> Vec<(String, String)> {
+    use pyprojx_core::{ruff::RUFF, ty::TY, uv::UV, uv::UV_BUILD};
+    let mut filters = vec![(r"\\".to_owned(), "/".to_owned())];
+    for tool in [&RUFF, &TY, &UV, &UV_BUILD] {
+        let latest = regex_escape(tool.release(tool.latest()));
+        filters.push((
+            format!(
+                r"((?:checked against|knows) {} (?:[0-9][0-9.]* (?:to|and) )?){latest}\b",
+                tool.name
+            ),
+            "${1}[latest]".to_owned(),
+        ));
+    }
+    filters
+}
+
+fn regex_escape(text: &str) -> String {
+    text.replace('.', r"\.")
+}
+
+/// Snapshots a command's output with [`filters`].
 macro_rules! snapshot {
     ($command:expr) => {
-        insta::with_settings!({ filters => vec![(r"\\", "/")] }, {
+        let filters = filters();
+        let filters: Vec<(&str, &str)> = filters
+            .iter()
+            .map(|(pattern, replacement)| (pattern.as_str(), replacement.as_str()))
+            .collect();
+        insta::with_settings!({ filters => filters }, {
             assert_cmd_snapshot!($command);
         });
     };

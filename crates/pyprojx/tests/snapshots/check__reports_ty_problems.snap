@@ -20,7 +20,7 @@ warning[invalid-value]: `python-version` is Python 3.12, but `requires-python` a
    |                  ^^^^^^
    |
    = help: ty may accept code that needs Python 3.12; set `python-version = "3.10"`, or remove it so that ty uses `requires-python`
-   = note: checked against ty 0.0.40 to 0.0.84, which the project's requirements allow
+   = note: checked against ty 0.0.40 to [latest], which the project's requirements allow
 
 warning[invalid-value]: unknown rule `unresolved-imprt`
   --> pyproject.toml:13:1
@@ -29,7 +29,7 @@ warning[invalid-value]: unknown rule `unresolved-imprt`
    | ^^^^^^^^^^^^^^^^
    |
    = help: did you mean `unresolved-import`?
-   = note: checked against ty 0.0.40 to 0.0.84, which the project's requirements allow
+   = note: checked against ty 0.0.40 to [latest], which the project's requirements allow
 
 warning[unsupported-feature]: some ty versions the project allows do not support the rule `missing-direct-dependency`
   --> pyproject.toml:14:1
@@ -41,7 +41,7 @@ warning[unsupported-feature]: some ty versions the project allows do not support
    | ^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: ty added it in 0.0.76; require `ty>=0.0.76`
-   = note: checked against ty 0.0.40 to 0.0.84, which the project's requirements allow
+   = note: checked against ty 0.0.40 to [latest], which the project's requirements allow
 
 error[unknown-key]: unknown key `rule` in `[[tool.ty.overrides]]`
   --> pyproject.toml:18:1
@@ -50,7 +50,7 @@ error[unknown-key]: unknown key `rule` in `[[tool.ty.overrides]]`
    | ^^^^
    |
    = help: did you mean `rules`?
-   = note: checked against ty 0.0.40 to 0.0.84, which the project's requirements allow
+   = note: checked against ty 0.0.40 to [latest], which the project's requirements allow
 
 Found 1 error and 3 warnings.
 2 problems are fixable with `--fix --unsafe-fixes`.
