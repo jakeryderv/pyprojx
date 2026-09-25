@@ -26,6 +26,8 @@ pub struct Tool {
     pub options: &'static [OptionData],
     /// Options the tables that hold them require, sorted.
     pub required: &'static [&'static str],
+    /// Options a release renamed but still accepts, with their new names, sorted.
+    pub renamed: &'static [(&'static str, &'static str)],
     /// What the tool does with an unknown key in each table (`""` for the top
     /// level), where it does not reject it, sorted.
     pub unknown_keys: &'static [(&'static str, Treatment)],
@@ -88,6 +90,14 @@ impl Tool {
     /// What the tool does with an invalid value for the option at `path`.
     pub fn invalid_value(&self, path: &str) -> Treatment {
         lookup(self.invalid_values, path)
+    }
+
+    /// The new name of the option at `path`, if a release renamed it.
+    pub fn new_name(&self, path: &str) -> Option<&'static str> {
+        self.renamed
+            .binary_search_by(|(old, _)| (*old).cmp(path))
+            .ok()
+            .map(|index| self.renamed[index].1)
     }
 
     /// Whether the table that holds the option at `path` requires it.

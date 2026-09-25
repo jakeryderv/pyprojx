@@ -74,3 +74,42 @@ fn corpus_diagnostics() {
         errors.join("\n")
     );
 }
+
+/// Fixing real-world files keeps them valid, fixes only what it reports, and
+/// leaves nothing more to fix when repeated.
+#[test]
+fn corpus_fixes() {
+    use pyprojx_core::Applicability;
+    use pyprojx_core::fix::fix;
+
+    let directory = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/corpus");
+    let mut report = String::new();
+    let mut files: Vec<_> = fs::read_dir(&directory)
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .filter(|path| {
+            path.extension()
+                .is_some_and(|extension| extension == "toml")
+        })
+        .collect();
+    files.sort();
+    for path in &files {
+        let name = path.file_name().unwrap().to_string_lossy();
+        let bytes = fs::read(path).unwrap();
+        let before = check(bytes.clone()).diagnostics.len();
+        for applicability in [Applicability::Safe, Applicability::Unsafe] {
+            let fixed = fix(bytes.clone(), None, applicability);
+            assert_eq!(fixed.skipped, 0, "{name}: a fix would break the file");
+            assert!(
+                fixed.checked.diagnostics.len() <= before,
+                "{name}: fixing added problems"
+            );
+            let again = fix(fixed.text.clone().into_bytes(), None, applicability);
+            assert_eq!(again.fixed, 0, "{name}: fixing again changed the file");
+            if fixed.fixed > 0 {
+                writeln!(report, "{name}: {applicability:?} fixes {}", fixed.fixed).unwrap();
+            }
+        }
+    }
+    insta::assert_snapshot!(report);
+}

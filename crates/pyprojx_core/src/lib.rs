@@ -9,6 +9,7 @@ mod backend_data;
 pub mod backends;
 pub mod diagnostic;
 pub mod document;
+pub mod fix;
 pub mod lock;
 pub mod parse;
 pub mod ruff;
@@ -29,7 +30,7 @@ pub mod uv;
 #[rustfmt::skip]
 mod uv_data;
 
-pub use diagnostic::{Diagnostic, Rule, Severity};
+pub use diagnostic::{Applicability, Diagnostic, Edit, Fix, Rule, Severity};
 pub use lock::{Lock, LockKind};
 
 /// The result of checking a file.

@@ -4,8 +4,9 @@ use std::ops::Range;
 
 use toml::de::DeTable;
 
-use crate::diagnostic::{Diagnostic, Rule};
+use crate::diagnostic::{Diagnostic, Fix, Rule};
 use crate::document::{Value, describe_type, string_span};
+use crate::fix::rename;
 use crate::lock::Lock;
 use crate::standards::Problem;
 
@@ -61,18 +62,25 @@ impl Context<'_> {
             if allowed.contains(&name) {
                 continue;
             }
-            let help = match suggest(name, allowed) {
+            let suggestion = suggest(name, allowed);
+            let help = match suggestion {
                 Some(suggestion) => format!("did you mean `{suggestion}`?"),
                 None => format!("expected one of {}", quoted_list(allowed)),
             };
-            self.report(
-                Diagnostic::new(
-                    Rule::UnknownKey,
-                    format!("unknown key `{name}` in {location}"),
-                    key.span(),
-                )
-                .with_help(help),
-            );
+            let mut diagnostic = Diagnostic::new(
+                Rule::UnknownKey,
+                format!("unknown key `{name}` in {location}"),
+                key.span(),
+            )
+            .with_help(help);
+            // The suggestion is a guess, so renaming to it needs review.
+            if let Some(suggestion) = suggestion
+                && crate::document::get(table, suggestion).is_none()
+            {
+                let edit = rename(self.text, key.span(), name, suggestion);
+                diagnostic = diagnostic.with_fix(Fix::unsafe_(vec![edit]));
+            }
+            self.report(diagnostic);
         }
     }
 

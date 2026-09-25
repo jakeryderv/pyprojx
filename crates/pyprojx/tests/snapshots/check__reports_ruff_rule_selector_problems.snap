@@ -59,5 +59,6 @@ warning[ineffective-setting]: Ruff removed the rule `ANN102` in 0.8.0, so this h
   = note: checked against Ruff 0.16.8, which the project's requirements allow
 
 Found 2 errors and 3 warnings.
+2 problems are fixable with `--fix` (1 more with `--unsafe-fixes`).
 
 ----- stderr -----

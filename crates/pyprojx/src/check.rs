@@ -4,7 +4,7 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
 use pyprojx_core::lock::project_name;
-use pyprojx_core::{Lock, LockKind, Severity};
+use pyprojx_core::{Applicability, Diagnostic, Lock, LockKind, Severity};
 
 use crate::Status;
 use crate::render;
@@ -17,8 +17,13 @@ struct Target {
     display: String,
 }
 
-pub fn run(path: Option<PathBuf>) -> Status {
-    match check(path) {
+pub fn run(path: Option<PathBuf>, fix: bool, unsafe_fixes: bool) -> Status {
+    let applicability = if unsafe_fixes {
+        Applicability::Unsafe
+    } else {
+        Applicability::Safe
+    };
+    match check(path, fix.then_some(applicability), applicability) {
         Ok(status) => status,
         Err(message) => {
             anstream::eprintln!("error: {message}");
@@ -27,7 +32,13 @@ pub fn run(path: Option<PathBuf>) -> Status {
     }
 }
 
-fn check(path: Option<PathBuf>) -> Result<Status, String> {
+/// Checks the file, first fixing it with fixes at least as applicable as `fix`,
+/// if given. Counts the fixes left at least as applicable as `fixable`.
+fn check(
+    path: Option<PathBuf>,
+    fix: Option<Applicability>,
+    fixable: Applicability,
+) -> Result<Status, String> {
     let target = match path {
         Some(path) => explicit_target(path),
         None => discover_target()?,
@@ -37,7 +48,24 @@ fn check(path: Option<PathBuf>) -> Result<Status, String> {
         _ => format!("failed to read `{}`: {error}", target.display),
     })?;
     let lock = find_lock(&target, &String::from_utf8_lossy(&bytes));
-    let checked = pyprojx_core::check_with_lock(bytes, lock.as_ref());
+    let (checked, fixed) = match fix {
+        Some(applicability) => {
+            let fixed = pyprojx_core::fix::fix(bytes, lock.as_ref(), applicability);
+            if fixed.fixed > 0 {
+                std::fs::write(&target.path, &fixed.text)
+                    .map_err(|error| format!("failed to write `{}`: {error}", target.display))?;
+            }
+            if fixed.skipped > 0 {
+                anstream::eprintln!(
+                    "warning: skipped {} that would have made `{}` invalid TOML; please report this",
+                    plural(fixed.skipped, "fix"),
+                    target.display
+                );
+            }
+            (fixed.checked, fixed.fixed)
+        }
+        None => (pyprojx_core::check_with_lock(bytes, lock.as_ref()), 0),
+    };
 
     let mut stdout = anstream::stdout().lock();
     for diagnostic in &checked.diagnostics {
@@ -46,7 +74,14 @@ fn check(path: Option<PathBuf>) -> Result<Status, String> {
     }
     let errors = count(&checked.diagnostics, Severity::Error);
     let warnings = count(&checked.diagnostics, Severity::Warning);
+    if fixed > 0 {
+        writeln!(stdout, "Fixed {}.", plural(fixed, "problem"))
+            .map_err(|error| error.to_string())?;
+    }
     writeln!(stdout, "{}", summary(errors, warnings)).map_err(|error| error.to_string())?;
+    if let Some(line) = fixable_summary(&checked.diagnostics, fixable) {
+        writeln!(stdout, "{line}").map_err(|error| error.to_string())?;
+    }
 
     Ok(if errors > 0 {
         Status::Failure
@@ -144,9 +179,53 @@ fn count(diagnostics: &[pyprojx_core::Diagnostic], severity: Severity) -> usize 
         .count()
 }
 
+fn plural(count: usize, noun: &str) -> String {
+    let suffix = match (count, noun.ends_with('x')) {
+        (1, _) => "",
+        (_, true) => "es",
+        _ => "s",
+    };
+    format!("{count} {noun}{suffix}")
+}
+
+/// Says how many of `diagnostics` `--fix` would fix, and how many more
+/// `--unsafe-fixes` would, if any. With `--unsafe-fixes`, `fixable` is
+/// [`Applicability::Unsafe`], and they are counted together.
+fn fixable_summary(diagnostics: &[Diagnostic], fixable: Applicability) -> Option<String> {
+    let count = |applicability: Applicability| {
+        diagnostics
+            .iter()
+            .filter(|d| {
+                d.fix
+                    .as_ref()
+                    .is_some_and(|fix| fix.applicability == applicability)
+            })
+            .count()
+    };
+    let (safe, unsafe_) = (count(Applicability::Safe), count(Applicability::Unsafe));
+    let fixable_with = |count: usize, flags: &str| {
+        let verb = if count == 1 { "is" } else { "are" };
+        format!("{} {verb} fixable with `{flags}`", plural(count, "problem"))
+    };
+    match (fixable, safe, unsafe_) {
+        (_, 0, 0) => None,
+        (Applicability::Unsafe, safe, unsafe_) => Some(format!(
+            "{}.",
+            fixable_with(safe + unsafe_, "--fix --unsafe-fixes")
+        )),
+        (Applicability::Safe, 0, unsafe_) => Some(format!(
+            "{}.",
+            fixable_with(unsafe_, "--fix --unsafe-fixes")
+        )),
+        (Applicability::Safe, safe, 0) => Some(format!("{}.", fixable_with(safe, "--fix"))),
+        (Applicability::Safe, safe, unsafe_) => Some(format!(
+            "{} ({unsafe_} more with `--unsafe-fixes`).",
+            fixable_with(safe, "--fix")
+        )),
+    }
+}
+
 fn summary(errors: usize, warnings: usize) -> String {
-    let plural =
-        |count: usize, noun: &str| format!("{count} {noun}{}", if count == 1 { "" } else { "s" });
     match (errors, warnings) {
         (0, 0) => "All checks passed!".to_owned(),
         (errors, 0) => format!("Found {}.", plural(errors, "error")),

@@ -103,6 +103,23 @@ the specification advises against, and violations that tools tolerate. Base the 
 tools and note the results in the pull request. The real-world corpus below
 catches cases where a project relies on a tool's leniency.
 
+### Fixes
+
+A diagnostic can carry a fix: edits to ranges of the file, so that the rest of
+it, including comments and formatting, stays as it was. Mark a fix **safe**
+only if the tools read the fixed file as they read the original, such as an
+option's new name that the tool treats as an alias or a Ruff rule code it
+remaps, or if what it removes had no effect. Check that with the tool, for
+example by comparing `ruff check --show-settings` before and after. Mark
+everything else **unsafe**, including every fix based on a guess, such as
+renaming a misspelled key to the closest known one. `--fix` applies safe fixes;
+`--unsafe-fixes` adds the others.
+
+A fix must not make the file invalid, for example by renaming a key to one the
+table already has; check for that where the fix is made. As a backstop, fixing
+skips any fix that would make the file invalid TOML, and the corpus tests check
+that fixing real files keeps them valid and that fixing twice changes nothing.
+
 ### Build backend data
 
 `crates/pyprojx_core/src/backend_data.rs` records which releases of each build

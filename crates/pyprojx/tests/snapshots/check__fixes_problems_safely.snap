@@ -1,0 +1,62 @@
+---
+source: crates/pyprojx/tests/check.rs
+info:
+  program: pyprojx
+  args:
+    - check
+    - "--fix"
+  env:
+    NO_COLOR: "1"
+---
+success: false
+exit_code: 1
+----- stdout -----
+error[unknown-key]: unknown key `descripton` in `[project]`
+ --> pyproject.toml:4:1
+  |
+4 | descripton = "A demo"
+  | ^^^^^^^^^^
+  |
+  = help: did you mean `description`?
+
+error[unknown-key]: unknown key `line-lenght` in `[tool.ruff]`
+  --> pyproject.toml:11:1
+   |
+11 | line-lenght = 88
+   | ^^^^^^^^^^^
+   |
+   = help: did you mean `line-length`?
+   = note: checked against Ruff 0.16.8, which the project's requirements allow
+
+error[invalid-value]: unknown rule selector `E5O1`
+  --> pyproject.toml:13:31
+   |
+13 | lint.select = ["E", "SIM101", "E5O1"]  # keep
+   |                               ^^^^^^
+   |
+   = help: did you mean `E501`?
+   = note: checked against Ruff 0.16.8, which the project's requirements allow
+
+warning[invalid-value]: unknown rule `unresolved-imprt`
+  --> pyproject.toml:25:1
+   |
+25 | unresolved-imprt = "error"
+   | ^^^^^^^^^^^^^^^^
+   |
+   = help: did you mean `unresolved-import`?
+   = note: checked against ty 0.0.83, which the project's requirements allow
+
+error[invalid-value]: undefined index `internl`
+  --> pyproject.toml:31:18
+   |
+31 | idna = { index = "internl" }
+   |                  ^^^^^^^^^
+   |
+   = help: did you mean `internal`? uv fails when a source names an index that `[[tool.uv.index]]` does not declare
+   = note: checked against uv 0.9.0 to 0.12.18, which `tool.uv.required-version` allows
+
+Fixed 5 problems.
+Found 4 errors and 1 warning.
+5 problems are fixable with `--fix --unsafe-fixes`.
+
+----- stderr -----

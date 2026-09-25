@@ -4,7 +4,9 @@
 //! running uv, by `scripts/update_uv_data.py`.
 
 use crate::tool::Tool;
-use crate::uv_data::{INVALID_VALUES, OPTIONS, RELEASES, REQUIRED, SOURCE_KINDS, UNKNOWN_KEYS};
+use crate::uv_data::{
+    INVALID_VALUES, OPTIONS, RELEASES, RENAMED, REQUIRED, SOURCE_KINDS, UNKNOWN_KEYS,
+};
 
 /// uv's configuration, `[tool.uv]`.
 pub static UV: Tool = Tool {
@@ -16,6 +18,7 @@ pub static UV: Tool = Tool {
     releases: RELEASES,
     options: OPTIONS,
     required: REQUIRED,
+    renamed: RENAMED,
     unknown_keys: UNKNOWN_KEYS,
     invalid_values: INVALID_VALUES,
     // Measured by running uv: a setting it cannot read makes it skip the
@@ -38,6 +41,7 @@ pub static UV_BUILD: Tool = Tool {
     releases: RELEASES,
     options: OPTIONS,
     required: REQUIRED,
+    renamed: RENAMED,
     unknown_keys: UNKNOWN_KEYS,
     invalid_values: INVALID_VALUES,
     warning: None,

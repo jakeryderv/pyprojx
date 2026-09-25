@@ -38,7 +38,10 @@ and groups `[tool.uv]` refers to, against the Ruff, ty, and uv versions the
 project uses: those locked in `uv.lock` or `pylock.toml` if there is one,
 otherwise those its requirements or `required-version` allow. Each of those
 diagnostics says which versions it was checked against and where they came
-from. The other capabilities above are not implemented yet.
+from. `pyprojx check --fix` fixes what it can without changing what the
+configuration means, such as moving Ruff's top-level linter settings into
+`lint`, keeping the rest of the file as it was. The other capabilities above
+are not implemented yet.
 
 ```text
 $ pyprojx check
@@ -55,6 +58,11 @@ Found 1 error.
 its parents, or the file or directory you pass. It exits with 0 when there are no
 errors (warnings do not fail the check), 1 when there are, and 2 when the file
 cannot be checked.
+
+With `--fix`, it applies safe fixes, which tools read as they read the original,
+writes the file, and reports what is left. `--unsafe-fixes` adds fixes that may
+change what the configuration means, such as renaming a misspelled key to the
+closest known one; review those before committing them.
 
 pyprojx is written in Rust and distributed on PyPI as prebuilt binaries, like
 Ruff and uv, so no Rust toolchain is needed to install it. Run it with
