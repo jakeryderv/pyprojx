@@ -69,8 +69,19 @@ fn regex_escape(text: &str) -> String {
     text.replace('.', r"\.")
 }
 
-/// Snapshots a command's output with [`filters`].
+/// Snapshots a command's output with [`filters`], or, with `raw`, without the
+/// first, which would change escaped characters.
 macro_rules! snapshot {
+    ($command:expr, raw) => {
+        let filters = filters().split_off(1);
+        let filters: Vec<(&str, &str)> = filters
+            .iter()
+            .map(|(pattern, replacement)| (pattern.as_str(), replacement.as_str()))
+            .collect();
+        insta::with_settings!({ filters => filters }, {
+            assert_cmd_snapshot!($command);
+        });
+    };
     ($command:expr) => {
         let filters = filters();
         let filters: Vec<(&str, &str)> = filters
@@ -344,4 +355,53 @@ fn fixes_problems_unsafely_on_request() {
     let project = Project::with_pyproject(FIXABLE);
     snapshot!(project.check().args(["--fix", "--unsafe-fixes"]));
     insta::assert_snapshot!(project.read("pyproject.toml"));
+}
+
+/// Two projects: one with an error and a warning, one with a fixable warning.
+fn two_projects() -> Project {
+    let project = Project::new();
+    project.write(
+        "a/pyproject.toml",
+        b"[project]\nname = \"a\"\nversion = \"1\"\ndescripton = \"typo, with: punctuation\"\nlicense = { text = \"MIT\" }\n",
+    );
+    project.write(
+        "b/pyproject.toml",
+        b"[dependency-groups]\ndev = [\"ruff==0.16.8\"]\n[tool.ruff.lint]\nselect = [\"PLR1701\"]\n",
+    );
+    project
+}
+
+#[test]
+fn checks_several_files() {
+    let project = two_projects();
+    snapshot!(
+        project
+            .check()
+            .args(["a/pyproject.toml", "b", "missing.toml"])
+    );
+}
+
+#[test]
+fn writes_github_annotations() {
+    let project = two_projects();
+    snapshot!(
+        project
+            .check()
+            .args(["--output-format", "github", "a", "b/pyproject.toml"])
+    );
+}
+
+#[test]
+fn writes_json() {
+    let project = two_projects();
+    // Paths as given, with `/`, are shown as given on every platform.
+    snapshot!(
+        project.check().args([
+            "--output-format",
+            "json",
+            "a/pyproject.toml",
+            "b/pyproject.toml"
+        ]),
+        raw
+    );
 }

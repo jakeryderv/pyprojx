@@ -2,9 +2,13 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use clap::{Args, Parser, Subcommand};
+use pyprojx_core::Applicability;
 
 mod check;
+mod output;
 mod render;
+
+use output::OutputFormat;
 
 /// Version-aware intelligence for pyproject.toml.
 #[derive(Debug, Parser)]
@@ -16,15 +20,15 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
-    /// Check a pyproject.toml file for problems.
+    /// Check pyproject.toml files for problems.
     Check(CheckArgs),
 }
 
 #[derive(Debug, Args)]
 struct CheckArgs {
-    /// The file to check, or a directory containing a pyproject.toml. Defaults to
-    /// the nearest pyproject.toml in the current directory or its parents.
-    path: Option<PathBuf>,
+    /// The files to check, or directories containing a pyproject.toml. Defaults
+    /// to the nearest pyproject.toml in the current directory or its parents.
+    paths: Vec<PathBuf>,
     /// Apply fixes that keep the configuration's meaning, and write the file.
     #[arg(long)]
     fix: bool,
@@ -32,6 +36,9 @@ struct CheckArgs {
     /// renaming a misspelled key to a guess. Review them before committing.
     #[arg(long)]
     unsafe_fixes: bool,
+    /// How to write diagnostics.
+    #[arg(long, value_enum, default_value_t)]
+    output_format: OutputFormat,
 }
 
 /// Process exit statuses, following Ruff's conventions.
@@ -58,7 +65,19 @@ impl From<Status> for ExitCode {
 fn main() -> ExitCode {
     let cli = Cli::parse();
     let status = match cli.command {
-        Command::Check(args) => check::run(args.path, args.fix, args.unsafe_fixes),
+        Command::Check(args) => {
+            let fixable = if args.unsafe_fixes {
+                Applicability::Unsafe
+            } else {
+                Applicability::Safe
+            };
+            let options = check::Options {
+                fix: args.fix.then_some(fixable),
+                fixable,
+                format: args.output_format,
+            };
+            check::run(args.paths, &options)
+        }
     };
     status.into()
 }
