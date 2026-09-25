@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.7.0](https://github.com/jakeryderv/pyprojx/compare/v0.6.0...v0.7.0) (2026-09-25)
+
+
+### Features
+
+* check several files and write GitHub or JSON output ([#37](https://github.com/jakeryderv/pyprojx/issues/37)) ([9d60baf](https://github.com/jakeryderv/pyprojx/commit/9d60baf00fc44d112f6255446bd2cbd7c3c6ff18))
+* preview fixes with --diff, and say what each fix does ([#38](https://github.com/jakeryderv/pyprojx/issues/38)) ([9090338](https://github.com/jakeryderv/pyprojx/commit/909033871dbab6862d199b49e22721a2944fb265))
+
+
+### Bug Fixes
+
+* update uv data for uv 0.12.19 ([#34](https://github.com/jakeryderv/pyprojx/issues/34)) ([d4a8b61](https://github.com/jakeryderv/pyprojx/commit/d4a8b619279fc9ab79d537273ed0e11982b8bf2a))
+
 ## [0.6.0](https://github.com/jakeryderv/pyprojx/compare/v0.5.0...v0.6.0) (2026-09-25)
 
 
