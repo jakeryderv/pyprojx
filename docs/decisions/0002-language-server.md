@@ -1,6 +1,6 @@
 # 0002: Add a language server as `pyprojx server`
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-09-25
 
 ## Context
