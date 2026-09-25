@@ -1,0 +1,23 @@
+---
+source: crates/pyprojx_server/tests/server.rs
+expression: "serde_json::to_string_pretty(&result).unwrap()"
+---
+{
+  "capabilities": {
+    "codeActionProvider": {
+      "codeActionKinds": [
+        "quickfix",
+        "source.fixAll.pyprojx"
+      ]
+    },
+    "positionEncoding": "utf-8",
+    "textDocumentSync": {
+      "change": 1,
+      "openClose": true
+    }
+  },
+  "serverInfo": {
+    "name": "pyprojx",
+    "version": "0.6.0"
+  }
+}

@@ -1,0 +1,74 @@
+---
+source: crates/pyprojx_server/tests/server.rs
+expression: client.redact(&client.diagnostics())
+---
+{
+  "diagnostics": [
+    {
+      "code": "invalid-value",
+      "message": "invalid project name `démo`\nhelp: names must start and end with a letter or digit and contain only letters, digits, `-`, `_`, and `.`",
+      "range": {
+        "end": {
+          "character": 13,
+          "line": 1
+        },
+        "start": {
+          "character": 7,
+          "line": 1
+        }
+      },
+      "severity": 1,
+      "source": "pyprojx"
+    },
+    {
+      "code": "unknown-key",
+      "message": "unknown key `descripton` in `[project]`\nhelp: did you mean `description`?",
+      "range": {
+        "end": {
+          "character": 10,
+          "line": 3
+        },
+        "start": {
+          "character": 0,
+          "line": 3
+        }
+      },
+      "severity": 1,
+      "source": "pyprojx"
+    },
+    {
+      "code": "deprecated-setting",
+      "message": "linter settings at the top level of `[tool.ruff]` are deprecated\nhelp: move them to `[tool.ruff.lint]`, such as `[tool.ruff.lint] select = [...]`\nnote: checked against Ruff 0.16.8, which the project's requirements allow",
+      "range": {
+        "end": {
+          "character": 6,
+          "line": 9
+        },
+        "start": {
+          "character": 0,
+          "line": 9
+        }
+      },
+      "severity": 2,
+      "source": "pyprojx"
+    },
+    {
+      "code": "deprecated-setting",
+      "message": "Ruff remaps the rule code `PLR1701` to `SIM101`\nhelp: use `SIM101`\nnote: checked against Ruff 0.16.8, which the project's requirements allow",
+      "range": {
+        "end": {
+          "character": 19,
+          "line": 9
+        },
+        "start": {
+          "character": 10,
+          "line": 9
+        }
+      },
+      "severity": 2,
+      "source": "pyprojx"
+    }
+  ],
+  "uri": "file:///[project]/pyproject.toml",
+  "version": 1
+}

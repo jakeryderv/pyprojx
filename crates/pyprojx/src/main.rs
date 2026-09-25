@@ -22,6 +22,9 @@ struct Cli {
 enum Command {
     /// Check pyproject.toml files for problems.
     Check(CheckArgs),
+    /// Run the language server, which editors start to check pyproject.toml
+    /// files as you edit them.
+    Server,
 }
 
 #[derive(Debug, Args)]
@@ -83,6 +86,13 @@ fn main() -> ExitCode {
             };
             check::run(args.paths, &options)
         }
+        Command::Server => match pyprojx_server::run() {
+            Ok(()) => Status::Success,
+            Err(message) => {
+                anstream::eprintln!("error: {message}");
+                Status::Error
+            }
+        },
     };
     status.into()
 }

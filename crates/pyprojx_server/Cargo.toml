@@ -1,6 +1,6 @@
 [package]
-name = "pyprojx"
-description = "Version-aware intelligence for pyproject.toml"
+name = "pyprojx_server"
+description = "Language server for pyprojx"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -11,16 +11,15 @@ publish = false
 
 [dependencies]
 pyprojx_core.workspace = true
-pyprojx_server.workspace = true
 
-annotate-snippets.workspace = true
-anstream.workspace = true
-clap.workspace = true
-similar.workspace = true
+crossbeam-channel.workspace = true
+lsp-server.workspace = true
+lsp-types.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 
 [dev-dependencies]
 insta.workspace = true
-insta-cmd.workspace = true
 tempfile.workspace = true
 
 [lints]

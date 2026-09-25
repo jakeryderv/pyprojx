@@ -1,0 +1,71 @@
+---
+source: crates/pyprojx_server/tests/server.rs
+expression: client.redact(&actions)
+---
+[
+  {
+    "diagnostics": [
+      {
+        "code": "unknown-key",
+        "message": "unknown key `descripton` in `[project]`\nhelp: did you mean `description`?",
+        "range": {
+          "end": {
+            "character": 10,
+            "line": 3
+          },
+          "start": {
+            "character": 0,
+            "line": 3
+          }
+        },
+        "severity": 1,
+        "source": "pyprojx"
+      }
+    ],
+    "edit": {
+      "changes": {
+        "file:///[project]/pyproject.toml": [
+          {
+            "newText": "description",
+            "range": {
+              "end": {
+                "character": 10,
+                "line": 3
+              },
+              "start": {
+                "character": 0,
+                "line": 3
+              }
+            }
+          }
+        ]
+      }
+    },
+    "isPreferred": false,
+    "kind": "quickfix",
+    "title": "pyprojx: rename to `description`"
+  },
+  {
+    "edit": {
+      "changes": {
+        "file:///[project]/pyproject.toml": [
+          {
+            "newText": "[project]\nname = \"démo\"\nversion = \"0.1.0\"\ndescripton = \"𝄞\"\n\n[dependency-groups]\ndev = [\"ruff==0.16.8\"]\n\n[tool.ruff]\nlint.select = [\"SIM101\"]\n",
+            "range": {
+              "end": {
+                "character": 0,
+                "line": 10
+              },
+              "start": {
+                "character": 0,
+                "line": 0
+              }
+            }
+          }
+        ]
+      }
+    },
+    "kind": "source.fixAll.pyprojx",
+    "title": "pyprojx: fix all safe problems"
+  }
+]

@@ -108,6 +108,20 @@ pub struct LockError {
 /// Returns `None` if there is no lock file, or if the nearest `uv.lock` in a
 /// parent directory is for another project.
 pub fn find(path: &Path, pyproject: &str, prefix: &str) -> Option<Result<Lock, LockError>> {
+    find_with(path, pyproject, prefix, &mut |path, kind, name| {
+        let text = std::fs::read_to_string(path).map_err(|error| error.to_string())?;
+        Lock::parse(kind, name, &text)
+    })
+}
+
+/// Like [`find`], but reads and parses each lock file found with `load`,
+/// which is given its path, kind, and name, such as to reuse locks read before.
+pub fn find_with(
+    path: &Path,
+    pyproject: &str,
+    prefix: &str,
+    load: &mut dyn FnMut(&Path, LockKind, String) -> Result<Lock, String>,
+) -> Option<Result<Lock, LockError>> {
     let dir = std::path::absolute(path).ok()?.parent()?.to_path_buf();
     let name = project_name(pyproject);
     for (depth, dir) in dir.ancestors().enumerate() {
@@ -122,10 +136,7 @@ pub fn find(path: &Path, pyproject: &str, prefix: &str) -> Option<Result<Lock, L
                 continue;
             }
             let display = format!("{prefix}{}{file}", "../".repeat(depth));
-            let lock = std::fs::read_to_string(&path)
-                .map_err(|error| error.to_string())
-                .and_then(|text| Lock::parse(kind, display.clone(), &text));
-            return match lock {
+            return match load(&path, kind, display.clone()) {
                 // A parent's lock is for another project unless it includes this one.
                 Ok(lock)
                     if depth == 0 || name.as_deref().is_some_and(|n| lock.has_local_package(n)) =>
