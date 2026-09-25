@@ -88,7 +88,7 @@ repos:
         name: pyprojx
         entry: pyprojx check
         language: python
-        additional_dependencies: [pyprojx==0.6.0] # x-release-please-version
+        additional_dependencies: [pyprojx==0.7.0] # x-release-please-version
         files: (^|/)pyproject\.toml$
 ```
 
@@ -99,7 +99,7 @@ the pull request:
 
 ```yaml
 - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-- run: uvx pyprojx@0.6.0 check --output-format github # x-release-please-version
+- run: uvx pyprojx@0.7.0 check --output-format github # x-release-please-version
 ```
 
 ## Learn more and contribute
