@@ -13,8 +13,9 @@ use std::ops::Range;
 use toml::de::{DeTable, DeValue};
 
 use super::{Context, suggest};
-use crate::diagnostic::{Diagnostic, Rule};
+use crate::diagnostic::{Diagnostic, Fix, Rule};
 use crate::document::{describe_type, get};
+use crate::fix::rename;
 use crate::standards::{VersionSet, allowed_versions, allows_python_minor, required_versions};
 use crate::tool::{OptionData, OptionKind, Tool, Treatment, ValueType};
 
@@ -315,7 +316,7 @@ impl Checker {
                 continue;
             }
             let Some(option) = tool.option(&path) else {
-                self.report_unknown(context, prefix, name, key.span());
+                self.report_unknown(context, (table, prefix), name, key.span());
                 continue;
             };
             let supported = self
@@ -332,7 +333,7 @@ impl Checker {
 
             let newest = self.newest();
             if option.is_deprecated(newest) && !extension.deprecated(prefix, name, key.span()) {
-                self.report_deprecated(context, option, newest, key.span());
+                self.report_deprecated(context, table, option, newest, key.span());
             }
             self.check_value(context, extension, option, value);
             extension.option(context, self, option, value);
@@ -486,13 +487,14 @@ impl Checker {
     fn report_unknown(
         &self,
         context: &mut Context<'_>,
-        prefix: &str,
+        (table, prefix): (&DeTable<'_>, &str),
         name: &str,
         span: Range<usize>,
     ) {
         let tool = self.tool;
         let known = tool.names_in(prefix, self.newest());
-        let help = match suggest(name, &known) {
+        let suggestion = suggest(name, &known);
+        let help = match suggestion {
             Some(suggestion) => format!("did you mean `{suggestion}`?"),
             None => format!(
                 "no {} release from {} to {} has this option; see {}",
@@ -502,14 +504,21 @@ impl Checker {
                 tool.docs
             ),
         };
-        let diagnostic = Diagnostic::new(
+        let mut diagnostic = Diagnostic::new(
             Rule::UnknownKey,
             format!("unknown key `{name}` in {}", self.table_name(prefix)),
-            span,
+            span.clone(),
         )
         .with_help(help);
-        let table = prefix.strip_suffix('.').unwrap_or_default();
-        context.report(self.treat(diagnostic, tool.unknown_key(table)));
+        // The suggestion is a guess, so renaming to it needs review.
+        if let Some(suggestion) = suggestion
+            && get(table, suggestion).is_none()
+        {
+            let edit = rename(context.text, span, name, suggestion);
+            diagnostic = diagnostic.with_fix(Fix::unsafe_(vec![edit]));
+        }
+        let path = prefix.strip_suffix('.').unwrap_or_default();
+        context.report(self.treat(diagnostic, tool.unknown_key(path)));
     }
 
     /// Reports options the table at `prefix` requires but lacks.
@@ -638,6 +647,7 @@ impl Checker {
     fn report_deprecated(
         &self,
         context: &mut Context<'_>,
+        table: &DeTable<'_>,
         option: &OptionData,
         newest: usize,
         span: Range<usize>,
@@ -651,10 +661,18 @@ impl Checker {
                 "`{}.{}` is deprecated since {} {since}",
                 self.tool.table, option.path, self.tool.name
             ),
-            span,
+            span.clone(),
         );
         if let Some(message) = option.message {
             diagnostic = diagnostic.with_help(message);
+        }
+        // The tool reads the old name as the new one.
+        let name = option.path.rsplit('.').next().unwrap_or(option.path);
+        if let Some(new) = self.tool.new_name(option.path)
+            && get(table, new).is_none()
+        {
+            let edit = rename(context.text, span, name, new);
+            diagnostic = diagnostic.with_fix(Fix::safe(vec![edit]));
         }
         context.report(diagnostic);
     }
@@ -840,9 +858,12 @@ mod tests {
         let text = format!("{}[tool.ruff]\nline-lenght = 1\n", project("ruff>=0.9"));
         let found = check(&text, Some(&lock(&["0.5.0"])));
         assert_eq!(found[0].0, "unknown-key");
+        let latest = crate::ruff::RUFF.release(crate::ruff::RUFF.latest());
         assert_eq!(
             found[0].2,
-            "checked against Ruff 0.9.0 to 0.16.8, which the project's requirements allow; uv.lock locks a version they do not allow, so it looks out of date"
+            format!(
+                "checked against Ruff 0.9.0 to {latest}, which the project's requirements allow; uv.lock locks a version they do not allow, so it looks out of date"
+            )
         );
     }
 

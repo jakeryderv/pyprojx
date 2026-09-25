@@ -104,6 +104,63 @@ pub struct Diagnostic {
     pub help: Option<String>,
     /// Optional context, such as the tool versions a setting was checked against.
     pub note: Option<String>,
+    /// An edit that fixes the problem, if pyprojx knows one.
+    pub fix: Option<Fix>,
+}
+
+/// Edits to the source text that fix a problem.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Fix {
+    pub applicability: Applicability,
+    /// Non-overlapping edits, applied together or not at all.
+    pub edits: Vec<Edit>,
+}
+
+/// Whether a fix can be applied without review.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Applicability {
+    /// The fix may change what the configuration means, such as renaming a
+    /// misspelled key to a guess, so it is applied only with `--unsafe-fixes`.
+    Unsafe,
+    /// The tool reads the fixed configuration as it read the original, or the
+    /// part removed had no effect, so `--fix` applies it.
+    Safe,
+}
+
+/// Replaces a range of the source text.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Edit {
+    pub range: Range<usize>,
+    pub replacement: String,
+}
+
+impl Fix {
+    pub fn safe(edits: Vec<Edit>) -> Self {
+        Self {
+            applicability: Applicability::Safe,
+            edits,
+        }
+    }
+
+    pub fn unsafe_(edits: Vec<Edit>) -> Self {
+        Self {
+            applicability: Applicability::Unsafe,
+            edits,
+        }
+    }
+}
+
+impl Edit {
+    pub fn replace(range: Range<usize>, replacement: impl Into<String>) -> Self {
+        Self {
+            range,
+            replacement: replacement.into(),
+        }
+    }
+
+    pub fn delete(range: Range<usize>) -> Self {
+        Self::replace(range, "")
+    }
 }
 
 /// A related source location with an explanation.
@@ -123,6 +180,7 @@ impl Diagnostic {
             labels: Vec::new(),
             help: None,
             note: None,
+            fix: None,
         }
     }
 
@@ -138,6 +196,12 @@ impl Diagnostic {
     #[must_use]
     pub fn with_help(mut self, help: impl Into<String>) -> Self {
         self.help = Some(help.into());
+        self
+    }
+
+    #[must_use]
+    pub fn with_fix(mut self, fix: Fix) -> Self {
+        self.fix = Some(fix);
         self
     }
 

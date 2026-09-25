@@ -545,6 +545,12 @@ pub const REQUIRED: &[&str] = &[
     "pip.dependency-metadata.name",
 ];
 
+/// Options a release renamed but still accepts, with their new names, sorted.
+pub const RENAMED: &[(&str, &str)] = &[
+    ("dependency-metadata.provides-extras", "provides-extra"),
+    ("pip.dependency-metadata.provides-extras", "provides-extra"),
+];
+
 /// What the latest release does with an unknown key in each table (`""` for `[tool.uv]`), where it does
 /// not reject it, sorted.
 pub const UNKNOWN_KEYS: &[(&str, Treatment)] = &[

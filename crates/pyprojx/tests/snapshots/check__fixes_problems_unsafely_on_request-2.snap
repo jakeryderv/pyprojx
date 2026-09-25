@@ -1,0 +1,40 @@
+---
+source: crates/pyprojx/tests/check.rs
+expression: "project.read(\"pyproject.toml\")"
+---
+[project]
+name = "demo"
+version = "0.1.0"
+description = "A demo"
+dependencies = ["idna"]
+
+[dependency-groups]
+dev = ["ruff==0.16.8", "ty==0.0.83"]
+
+[tool.ruff]
+line-length = 88
+# Linter settings
+lint.select = ["E", "SIM101", "E501"]  # keep
+lint.ignore = [
+  "E501",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["demo"]
+
+[tool.ty.analysis]
+strict-equality-semantics = true
+
+[tool.ty.rules]
+unresolved-import = "error"
+
+[tool.uv]
+required-version = ">=0.9"
+
+[tool.uv.sources]
+idna = { index = "internal" }
+
+[[tool.uv.index]]
+name = "internal"
+url = "https://example.com/simple"
+explicit = true

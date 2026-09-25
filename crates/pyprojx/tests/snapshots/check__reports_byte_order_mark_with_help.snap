@@ -27,5 +27,6 @@ error[missing-key]: `[project]` must set `version` or list it in `dynamic`
   = help: add `version = "0.1.0"`, or `dynamic = ["version"]` if your build backend provides it
 
 Found 2 errors.
+1 problem is fixable with `--fix`.
 
 ----- stderr -----

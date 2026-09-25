@@ -1,6 +1,6 @@
 //! Decoding file contents into source text.
 
-use crate::diagnostic::{Diagnostic, Rule};
+use crate::diagnostic::{Diagnostic, Edit, Fix, Rule};
 
 const BYTE_ORDER_MARK: char = '\u{feff}';
 
@@ -35,6 +35,8 @@ pub fn check_byte_order_mark(text: &str) -> Option<Diagnostic> {
             0..BYTE_ORDER_MARK.len_utf8(),
         )
         .with_help("tomllib (used by pip and most build backends) and uv reject it; save the file as UTF-8 without a byte order mark")
+        // Every reader treats the file the same without it.
+        .with_fix(Fix::safe(vec![Edit::delete(0..BYTE_ORDER_MARK.len_utf8())]))
     })
 }
 

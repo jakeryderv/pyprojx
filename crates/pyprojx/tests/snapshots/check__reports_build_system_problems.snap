@@ -25,5 +25,6 @@ error[unknown-key]: unknown key `build_backend` in `[build-system]`
   = help: did you mean `build-backend`?
 
 Found 2 errors.
+1 problem is fixable with `--fix --unsafe-fixes`.
 
 ----- stderr -----

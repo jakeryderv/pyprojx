@@ -287,3 +287,33 @@ fn warns_about_an_unreadable_lock() {
     project.write("uv.lock", b"[[package]\n");
     snapshot!(project.check());
 }
+
+/// A file with problems every kind of fix addresses, including a byte order
+/// mark.
+const FIXABLE: &[u8] = b"\xef\xbb\xbf[project]\nname = \"demo\"\nversion = \"0.1.0\"\ndescripton = \"A demo\"\ndependencies = [\"idna\"]\n\n[dependency-groups]\ndev = [\"ruff==0.16.8\", \"ty==0.0.83\"]\n\n[tool.ruff]\nline-lenght = 88\n# Linter settings\nselect = [\"E\", \"PLR1701\", \"E5O1\"]  # keep\nignore = [\n  \"ANN101\",  # removed\n  \"E501\",\n]\n\n[tool.ruff.isort]\nknown-first-party = [\"demo\"]\n\n[tool.ty.analysis]\nstrict-literal-narrowing = true\n\n[tool.ty.rules]\nunresolved-imprt = \"error\"\n\n[tool.uv]\nrequired-version = \">=0.9\"\n\n[tool.uv.sources]\nidna = { index = \"internl\" }\n\n[[tool.uv.index]]\nname = \"internal\"\nurl = \"https://example.com/simple\"\nexplicit = true\n";
+
+impl Project {
+    fn read(&self, path: &str) -> String {
+        fs::read_to_string(self.dir.path().join(path)).unwrap()
+    }
+}
+
+#[test]
+fn counts_fixable_problems() {
+    let project = Project::with_pyproject(FIXABLE);
+    snapshot!(project.check());
+}
+
+#[test]
+fn fixes_problems_safely() {
+    let project = Project::with_pyproject(FIXABLE);
+    snapshot!(project.check().arg("--fix"));
+    insta::assert_snapshot!(project.read("pyproject.toml"));
+}
+
+#[test]
+fn fixes_problems_unsafely_on_request() {
+    let project = Project::with_pyproject(FIXABLE);
+    snapshot!(project.check().args(["--fix", "--unsafe-fixes"]));
+    insta::assert_snapshot!(project.read("pyproject.toml"));
+}

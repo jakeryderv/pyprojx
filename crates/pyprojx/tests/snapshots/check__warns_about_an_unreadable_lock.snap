@@ -20,7 +20,7 @@ warning[unsupported-feature]: some Ruff versions the project allows do not suppo
   |            ^^^^^^^
   |
   = help: Ruff added it in 0.6.6; require `ruff>=0.6.6`
-  = note: checked against Ruff 0.5.0 to 0.16.8, which the project's requirements allow
+  = note: checked against Ruff 0.5.0 to 0.16.9, which the project's requirements allow
 
 warning[unsupported-feature]: some Ruff versions the project allows do not support `tool.ruff.analyze.detect-string-imports`
  --> pyproject.toml:9:1
@@ -32,7 +32,7 @@ warning[unsupported-feature]: some Ruff versions the project allows do not suppo
   | ^^^^^^^^^^^^^^^^^^^^^
   |
   = help: Ruff added it in 0.6.6; require `ruff>=0.6.6`
-  = note: checked against Ruff 0.5.0 to 0.16.8, which the project's requirements allow
+  = note: checked against Ruff 0.5.0 to 0.16.9, which the project's requirements allow
 
 Found 2 warnings.
 

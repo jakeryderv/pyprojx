@@ -10,8 +10,9 @@ use toml::de::{DeTable, DeValue};
 
 use super::tool::{Checker, Extension, check_python_version};
 use super::{Context, suggest};
-use crate::diagnostic::{Diagnostic, Rule};
+use crate::diagnostic::{Diagnostic, Fix, Rule};
 use crate::document::get;
+use crate::fix::rename;
 use crate::tool::{OptionData, Treatment};
 use crate::ty::{self, TY};
 
@@ -30,7 +31,7 @@ impl Extension for TyChecks {
             && let Some(rules) = value.get_ref().as_table()
         {
             for key in rules.keys() {
-                check_rule(context, checker, key.get_ref(), key.span());
+                check_rule(context, checker, rules, key.get_ref(), key.span());
             }
         }
     }
@@ -56,7 +57,13 @@ pub(super) fn check(context: &mut Context<'_>, root: &DeTable<'_>) {
 }
 
 /// Checks a rule name, which ty only warns about if it does not know it.
-fn check_rule(context: &mut Context<'_>, checker: &Checker, name: &str, span: Range<usize>) {
+fn check_rule(
+    context: &mut Context<'_>,
+    checker: &Checker,
+    rules: &DeTable<'_>,
+    name: &str,
+    span: Range<usize>,
+) {
     let data = ty::rule(name);
     let lacking: Vec<usize> = checker
         .candidates
@@ -69,18 +76,29 @@ fn check_rule(context: &mut Context<'_>, checker: &Checker, name: &str, span: Ra
     };
     let Some(data) = data else {
         let known = ty::rules_in(checker.newest());
-        let help = match suggest(name, &known) {
+        let suggestion = suggest(name, &known);
+        let help = match suggestion {
             Some(suggestion) => format!("did you mean `{suggestion}`?"),
             None => {
                 "ty ignores rules it does not know; see https://docs.astral.sh/ty/reference/rules/"
                     .to_owned()
             }
         };
-        context.report(
-            Diagnostic::new(Rule::InvalidValue, format!("unknown rule `{name}`"), span)
-                .with_help(help)
-                .as_warning(),
-        );
+        let mut diagnostic = Diagnostic::new(
+            Rule::InvalidValue,
+            format!("unknown rule `{name}`"),
+            span.clone(),
+        )
+        .with_help(help)
+        .as_warning();
+        // The suggestion is a guess, and enabling a rule changes what ty reports.
+        if let Some(suggestion) = suggestion
+            && get(rules, suggestion).is_none()
+        {
+            let edit = rename(context.text, span, name, suggestion);
+            diagnostic = diagnostic.with_fix(Fix::unsafe_(vec![edit]));
+        }
+        context.report(diagnostic);
         return;
     };
     checker.report_missing(

@@ -29,5 +29,6 @@ error[unknown-key]: unknown key `requires_python` in `[project]`
   = help: did you mean `requires-python`?
 
 Found 2 errors.
+1 problem is fixable with `--fix --unsafe-fixes`.
 
 ----- stderr -----

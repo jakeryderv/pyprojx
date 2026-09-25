@@ -208,6 +208,8 @@ class Option:
     selectors: bool = False
     # Whether the latest release that has the option requires it.
     required: bool = False
+    # The option's new name, if a release renamed it and still accepts the old.
+    renamed: str | None = None
     present: list[int] = field(default_factory=list)
     deprecated: list[int] = field(default_factory=list)
     # The value type in each release that accepts the option.
@@ -337,6 +339,7 @@ def add_aliases(
         ]
         if len(renamed) == 1:
             name = renamed[0].rpartition(".")[2]
+            option.renamed = name
             messages[path] = f"use `{name}`, the option's new name"
     return messages
 
@@ -505,6 +508,17 @@ def generate_options(
     ]
     lines += [
         f"    {rust_string(path)}," for path in sorted(found) if found[path].required
+    ]
+    lines += [
+        "];",
+        "",
+        "/// Options a release renamed but still accepts, with their new names, sorted.",
+        "pub const RENAMED: &[(&str, &str)] = &[",
+    ]
+    lines += [
+        f"    ({rust_string(path)}, {rust_string(found[path].renamed)}),"
+        for path in sorted(found)
+        if found[path].renamed
     ]
     lines += ["];", ""]
     return lines

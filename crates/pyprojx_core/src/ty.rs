@@ -4,7 +4,7 @@
 //! `scripts/update_ty_data.py`.
 
 use crate::tool::{Tool, added_after, contains, removed_before};
-use crate::ty_data::{OPTIONS, RELEASES, REQUIRED, RULES};
+use crate::ty_data::{OPTIONS, RELEASES, RENAMED, REQUIRED, RULES};
 
 /// ty's configuration, `[tool.ty]`.
 pub static TY: Tool = Tool {
@@ -16,6 +16,7 @@ pub static TY: Tool = Tool {
     releases: RELEASES,
     options: OPTIONS,
     required: REQUIRED,
+    renamed: RENAMED,
     unknown_keys: &[],
     invalid_values: &[],
     warning: None,

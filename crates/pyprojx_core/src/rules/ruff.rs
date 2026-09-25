@@ -11,8 +11,9 @@ use toml::de::{DeTable, DeValue};
 
 use super::tool::{Checker, Extension, check_python_version};
 use super::{Context, suggest};
-use crate::diagnostic::{Diagnostic, Rule};
+use crate::diagnostic::{Diagnostic, Edit, Fix, Rule};
 use crate::document::get;
+use crate::fix::{remove_entry, rename};
 use crate::ruff::{self, RUFF, RuleStatus, SelectorData};
 use crate::tool::{OptionData, Treatment};
 
@@ -22,8 +23,16 @@ struct RuffChecks {
     /// override, and globally.
     preview: bool,
     global_preview: bool,
-    /// Top-level linter settings, which belong in `[tool.ruff.lint]`.
+    /// The keys of top-level linter settings, which belong in `[tool.ruff.lint]`.
     moved: Vec<Range<usize>>,
+}
+
+/// A rule selector in a list, with the spans of the list's entries.
+struct Selector<'v> {
+    text: &'v str,
+    span: Range<usize>,
+    entries: Vec<Range<usize>>,
+    index: usize,
 }
 
 impl Extension for RuffChecks {
@@ -56,8 +65,8 @@ impl Extension for RuffChecks {
             // `select` and `extend-select` enable rules; the others adjust them.
             let name = option.path.rsplit('.').next().unwrap_or(option.path);
             let enables = matches!(name, "select" | "extend-select");
-            for (selector, span) in selectors(value) {
-                self.check_selector(context, checker, enables, selector, span);
+            for selector in selectors(value) {
+                self.check_selector(context, checker, enables, &selector);
             }
         }
     }
@@ -96,7 +105,8 @@ pub(super) fn check(context: &mut Context<'_>, root: &DeTable<'_>) {
         moved: Vec::new(),
     };
     checker.check_table(context, &mut checks, (ruff, span), "");
-    report_moved(context, &checks.moved);
+    // Moving the settings is safe only where `lint` is not defined already.
+    report_moved(context, &checks.moved, get(ruff, "lint").is_none());
     check_target_version(context, root, &checker, ruff);
     checker.annotate(context, start);
 }
@@ -187,9 +197,9 @@ impl RuffChecks {
         context: &mut Context<'_>,
         checker: &Checker,
         enables: bool,
-        text: &str,
-        span: Range<usize>,
+        selector: &Selector<'_>,
     ) {
+        let (text, span) = (selector.text, selector.span.clone());
         let newest = checker.newest();
         let data = ruff::selector(text);
         let present = |index: &usize| data.is_some_and(|data| data.is_present(*index));
@@ -240,9 +250,11 @@ impl RuffChecks {
                 Diagnostic::new(
                     Rule::DeprecatedSetting,
                     format!("Ruff remaps the rule code `{text}` to `{new}`"),
-                    span,
+                    span.clone(),
                 )
-                .with_help(format!("use `{new}`")),
+                .with_help(format!("use `{new}`"))
+                // Ruff reads the old code as the new one.
+                .with_fix(Fix::safe(vec![rename(context.text, span, text, new)])),
             );
             return;
         }
@@ -256,10 +268,13 @@ impl RuffChecks {
             let mut diagnostic = Diagnostic::new(
                 Rule::InvalidValue,
                 format!("unknown rule selector `{text}`"),
-                span,
+                span.clone(),
             );
             if let Some(suggestion) = suggest_code(text, &known) {
-                diagnostic = diagnostic.with_help(format!("did you mean `{suggestion}`?"));
+                let edit = rename(context.text, span, text, suggestion);
+                diagnostic = diagnostic
+                    .with_help(format!("did you mean `{suggestion}`?"))
+                    .with_fix(Fix::unsafe_(vec![edit]));
             } else if let Some(removed) = data.and_then(|data| data.removed_before(newest)) {
                 diagnostic = diagnostic
                     .with_help(format!("Ruff removed it in {}", checker.release(removed)));
@@ -286,7 +301,12 @@ impl RuffChecks {
                     format!("Ruff removed the rule `{text}` in {removed}, so this has no effect"),
                     span,
                 )
-                .with_help("remove it"),
+                .with_help("remove it")
+                .with_fix(Fix::safe(vec![remove_entry(
+                    context.text,
+                    &selector.entries,
+                    selector.index,
+                )])),
             );
             return;
         }
@@ -341,18 +361,30 @@ impl RuffChecks {
     }
 }
 
-/// The rule selectors in a list, or in each list of a map, with their spans.
-fn selectors<'v>(value: &'v toml::Spanned<DeValue<'_>>) -> Vec<(&'v str, Range<usize>)> {
+/// The rule selectors in a list, or in each list of a map.
+fn selectors<'v>(value: &'v toml::Spanned<DeValue<'_>>) -> Vec<Selector<'v>> {
     let lists: Vec<&toml::Spanned<DeValue<'_>>> = match value.get_ref() {
         DeValue::Table(map) => map.values().collect(),
         _ => vec![value],
     };
-    lists
+    let mut found = Vec::new();
+    for list in lists
         .into_iter()
         .filter_map(|list| list.get_ref().as_array())
-        .flatten()
-        .filter_map(|entry| entry.get_ref().as_str().map(|text| (text, entry.span())))
-        .collect()
+    {
+        let entries: Vec<Range<usize>> = list.iter().map(toml::Spanned::span).collect();
+        for (index, entry) in list.iter().enumerate() {
+            if let Some(text) = entry.get_ref().as_str() {
+                found.push(Selector {
+                    text,
+                    span: entry.span(),
+                    entries: entries.clone(),
+                    index,
+                });
+            }
+        }
+    }
+    found
 }
 
 /// A known rule code or prefix one edit from `text`, preferring the same
@@ -368,8 +400,10 @@ fn suggest_code<'a>(text: &str, known: &[&'a str]) -> Option<&'a str> {
 }
 
 /// Reports top-level linter settings, which Ruff deprecated in favor of
-/// `[tool.ruff.lint]`, together.
-fn report_moved(context: &mut Context<'_>, moved: &[Range<usize>]) {
+/// `[tool.ruff.lint]`, together. If `movable`, because `[tool.ruff]` does not
+/// define `lint` already, fixes them by prefixing each key with `lint.`, which
+/// Ruff reads as it read the original, and which keeps comments and order.
+fn report_moved(context: &mut Context<'_>, moved: &[Range<usize>], movable: bool) {
     let Some((first, others)) = moved.split_first() else {
         return;
     };
@@ -381,6 +415,19 @@ fn report_moved(context: &mut Context<'_>, moved: &[Range<usize>]) {
     .with_help("move them to `[tool.ruff.lint]`, such as `[tool.ruff.lint] select = [...]`");
     for span in others {
         diagnostic = diagnostic.with_label(span.clone(), "also a linter setting");
+    }
+    if movable {
+        // Prefix the key as written, so that a quoted key stays one key.
+        let edits = moved
+            .iter()
+            .map(|span| {
+                Edit::replace(
+                    span.clone(),
+                    format!("lint.{}", &context.text[span.clone()]),
+                )
+            })
+            .collect();
+        diagnostic = diagnostic.with_fix(Fix::safe(edits));
     }
     context.report(diagnostic);
 }

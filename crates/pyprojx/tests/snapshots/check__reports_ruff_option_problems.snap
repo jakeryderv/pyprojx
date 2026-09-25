@@ -43,5 +43,6 @@ error[unsupported-feature]: no Ruff version the project allows supports `tool.ru
   = note: checked against Ruff 0.5.0 to 0.5.7, which the project's requirements allow
 
 Found 2 errors and 1 warning.
+1 problem is fixable with `--fix` (1 more with `--unsafe-fixes`).
 
 ----- stderr -----

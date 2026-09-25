@@ -17,8 +17,9 @@ use toml::de::{DeTable, DeValue};
 
 use super::tool::Checker;
 use super::{Context, quoted_list, suggest};
-use crate::diagnostic::{Diagnostic, Rule};
+use crate::diagnostic::{Diagnostic, Fix, Rule};
 use crate::document::get;
+use crate::fix::rename;
 use crate::standards::{normalize_name, requirement_name};
 use crate::uv::{
     DUPLICATE_INDEX_NAMES_REJECTED_SINCE, MULTIPLE_DEFAULT_INDEXES_REJECTED_SINCE, UV, source_kinds,
@@ -73,12 +74,13 @@ pub(super) fn check(
     {
         for group in settings.keys() {
             if !is_known(&names.groups, group.get_ref()) {
+                let taken = |key: &str| crate::document::get(settings, key).is_some();
                 context.report(undefined(
-                    "dependency group",
-                    group.get_ref(),
-                    group.span(),
+                    context.text,
+                    ("dependency group", group.get_ref(), group.span()),
                     &names.groups,
                     "uv fails when a group it has settings for does not exist",
+                    &taken,
                 ));
             }
         }
@@ -173,26 +175,36 @@ fn is_known(names: &BTreeSet<String>, name: &str) -> bool {
     normalize_name(name).is_ok_and(|name| names.contains(&name))
 }
 
-/// A diagnostic for a reference to a `kind`, such as "extra", named `name`,
-/// which the project does not define.
+/// A diagnostic for a reference to a `kind`, such as "extra", named `name` at
+/// `span` in `text`, which the project does not define. A close match among
+/// `known` is suggested, with a fix that needs review, unless `taken` says the
+/// name is in use where the fix would put it.
 fn undefined(
-    kind: &str,
-    name: &str,
-    span: Range<usize>,
+    text: &str,
+    (kind, name, span): (&str, &str, Range<usize>),
     known: &BTreeSet<String>,
     consequence: &str,
+    taken: &dyn Fn(&str) -> bool,
 ) -> Diagnostic {
     let candidates: Vec<&str> = known.iter().map(String::as_str).collect();
-    let help = match suggest(name, &candidates) {
+    let suggestion = suggest(name, &candidates);
+    let help = match suggestion {
         Some(suggestion) => format!("did you mean `{suggestion}`? {consequence}"),
         None => consequence.to_owned(),
     };
-    Diagnostic::new(
+    let mut diagnostic = Diagnostic::new(
         Rule::InvalidValue,
         format!("undefined {kind} `{name}`"),
-        span,
+        span.clone(),
     )
-    .with_help(help)
+    .with_help(help);
+    if let Some(suggestion) = suggestion
+        && !taken(suggestion)
+    {
+        let edit = rename(text, span, name, suggestion);
+        diagnostic = diagnostic.with_fix(Fix::unsafe_(vec![edit]));
+    }
+    diagnostic
 }
 
 /// Names in backticks joined with "and", such as "`tag` and `branch`".
@@ -268,7 +280,13 @@ fn check_source(
                     is_known(known, name)
                 };
                 if !defined {
-                    context.report(undefined(kind, name, value.span(), known, consequence));
+                    context.report(undefined(
+                        context.text,
+                        (kind, name, value.span()),
+                        known,
+                        consequence,
+                        &|_| false,
+                    ));
                 }
             }
         }
@@ -359,11 +377,11 @@ fn check_default_groups(context: &mut Context<'_>, names: &Names, groups: &Spann
             && !is_known(&names.groups, name)
         {
             context.report(undefined(
-                "dependency group",
-                name,
-                group.span(),
+                context.text,
+                ("dependency group", name, group.span()),
                 &names.groups,
                 "`uv sync` fails when a default group does not exist",
+                &|_| false,
             ));
         }
     }
@@ -407,7 +425,14 @@ fn check_conflicts(context: &mut Context<'_>, names: &Names, conflicts: &Spanned
                     && !is_known(known, name)
                 {
                     context.report(
-                        undefined(kind, name, value.span(), known, "uv ignores it").as_warning(),
+                        undefined(
+                            context.text,
+                            (kind, name, value.span()),
+                            known,
+                            "uv ignores it",
+                            &|_| false,
+                        )
+                        .as_warning(),
                     );
                 }
             }

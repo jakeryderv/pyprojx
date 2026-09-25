@@ -47,5 +47,6 @@ error[invalid-value]: the Git source for `requests` sets `tag` and `branch`
    = note: checked against uv 0.12.18, the latest release pyprojx knows; set `required-version` to check the version you use
 
 Found 3 errors and 1 warning.
+1 problem is fixable with `--fix --unsafe-fixes`.
 
 ----- stderr -----
