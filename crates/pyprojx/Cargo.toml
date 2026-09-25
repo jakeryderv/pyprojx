@@ -15,6 +15,7 @@ pyprojx_core.workspace = true
 annotate-snippets.workspace = true
 anstream.workspace = true
 clap.workspace = true
+similar.workspace = true
 
 [dev-dependencies]
 insta.workspace = true

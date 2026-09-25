@@ -27,6 +27,7 @@ error[unknown-key]: unknown key `requires_python` in `[project]`
   | ^^^^^^^^^^^^^^^
   |
   = help: did you mean `requires-python`?
+  = fix: rename to `requires-python` (`--fix --unsafe-fixes`)
 
 Found 2 errors.
 1 problem is fixable with `--fix --unsafe-fixes`.

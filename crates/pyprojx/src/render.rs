@@ -1,7 +1,7 @@
 //! Rendering diagnostics as annotated source snippets.
 
 use annotate_snippets::{AnnotationKind, Level, Renderer, Snippet};
-use pyprojx_core::{Diagnostic, Severity};
+use pyprojx_core::{Applicability, Diagnostic, Severity};
 
 /// Renders `diagnostic` against the source `text` of the file shown as `path`.
 ///
@@ -30,6 +30,14 @@ pub fn render(diagnostic: &Diagnostic, text: &str, path: &str) -> String {
     }
     if let Some(note) = &diagnostic.note {
         group = group.element(Level::NOTE.message(note.as_str()));
+    }
+    if let Some(fix) = &diagnostic.fix {
+        let flags = match fix.applicability {
+            Applicability::Safe => "--fix",
+            Applicability::Unsafe => "--fix --unsafe-fixes",
+        };
+        let message = format!("{} (`{flags}`)", fix.title);
+        group = group.element(Level::HELP.with_name("fix").message(message));
     }
     Renderer::styled().render(&[group])
 }

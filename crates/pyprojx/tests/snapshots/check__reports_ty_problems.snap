@@ -30,6 +30,7 @@ warning[invalid-value]: unknown rule `unresolved-imprt`
    |
    = help: did you mean `unresolved-import`?
    = note: checked against ty 0.0.40 to [latest], which the project's requirements allow
+   = fix: rename to `unresolved-import` (`--fix --unsafe-fixes`)
 
 warning[unsupported-feature]: some ty versions the project allows do not support the rule `missing-direct-dependency`
   --> pyproject.toml:14:1
@@ -51,6 +52,7 @@ error[unknown-key]: unknown key `rule` in `[[tool.ty.overrides]]`
    |
    = help: did you mean `rules`?
    = note: checked against ty 0.0.40 to [latest], which the project's requirements allow
+   = fix: rename to `rules` (`--fix --unsafe-fixes`)
 
 Found 1 error and 3 warnings.
 2 problems are fixable with `--fix --unsafe-fixes`.

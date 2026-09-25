@@ -18,6 +18,7 @@ anstream = "1.0.0"
 clap = { version = "4.6.7", features = ["derive"] }
 insta = { version = "1.48.0", features = ["filters"] }
 insta-cmd = "0.7.0"
+similar = { version = "2.7.0", default-features = false, features = ["text"] }
 spdx = { version = "0.13.5", default-features = false }
 strsim = "0.11.1"
 tempfile = "3.27.0"

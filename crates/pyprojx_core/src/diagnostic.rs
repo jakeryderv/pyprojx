@@ -111,6 +111,8 @@ pub struct Diagnostic {
 /// Edits to the source text that fix a problem.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Fix {
+    /// What the fix does, such as "rename to `line-length`".
+    pub title: String,
     pub applicability: Applicability,
     /// Non-overlapping edits, applied together or not at all.
     pub edits: Vec<Edit>,
@@ -135,15 +137,17 @@ pub struct Edit {
 }
 
 impl Fix {
-    pub fn safe(edits: Vec<Edit>) -> Self {
+    pub fn safe(title: impl Into<String>, edits: Vec<Edit>) -> Self {
         Self {
+            title: title.into(),
             applicability: Applicability::Safe,
             edits,
         }
     }
 
-    pub fn unsafe_(edits: Vec<Edit>) -> Self {
+    pub fn unsafe_(title: impl Into<String>, edits: Vec<Edit>) -> Self {
         Self {
+            title: title.into(),
             applicability: Applicability::Unsafe,
             edits,
         }

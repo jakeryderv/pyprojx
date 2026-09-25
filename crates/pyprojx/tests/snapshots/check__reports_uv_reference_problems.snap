@@ -27,6 +27,7 @@ error[invalid-value]: undefined index `pytorch-cu`
    |
    = help: did you mean `pytorch-cpu`? uv fails when a source names an index that `[[tool.uv.index]]` does not declare
    = note: checked against uv [latest], the latest release pyprojx knows; set `required-version` to check the version you use
+   = fix: replace with `pytorch-cpu` (`--fix --unsafe-fixes`)
 
 warning[ineffective-setting]: `requests` is not a dependency of the project, so uv ignores its source
   --> pyproject.toml:14:1

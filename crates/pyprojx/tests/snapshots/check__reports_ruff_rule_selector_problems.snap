@@ -18,6 +18,7 @@ error[invalid-value]: unknown rule selector `E5O1`
   |
   = help: did you mean `E501`?
   = note: checked against Ruff 0.16.8, which the project's requirements allow
+  = fix: replace with `E501` (`--fix --unsafe-fixes`)
 
 error[unsupported-feature]: no Ruff version the project allows supports the rule selector `ANN101`
  --> pyproject.toml:5:24
@@ -39,6 +40,7 @@ warning[deprecated-setting]: Ruff remaps the rule code `PLR1701` to `SIM101`
   |
   = help: use `SIM101`
   = note: checked against Ruff 0.16.8, which the project's requirements allow
+  = fix: replace with `SIM101` (`--fix`)
 
 warning[ineffective-setting]: `AIR003` selects only preview rules, so it has no effect without preview
  --> pyproject.toml:5:45
@@ -57,6 +59,7 @@ warning[ineffective-setting]: Ruff removed the rule `ANN102` in 0.8.0, so this h
   |
   = help: remove it
   = note: checked against Ruff 0.16.8, which the project's requirements allow
+  = fix: remove `ANN102` (`--fix`)
 
 Found 2 errors and 3 warnings.
 2 problems are fixable with `--fix` (1 more with `--unsafe-fixes`).

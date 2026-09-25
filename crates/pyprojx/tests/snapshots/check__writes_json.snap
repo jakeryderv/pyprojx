@@ -15,9 +15,9 @@ success: false
 exit_code: 1
 ----- stdout -----
 [
-  {"file": "a/pyproject.toml", "rule": "unknown-key", "severity": "error", "message": "unknown key `descripton` in `[project]`", "start": {"line": 4, "column": 1}, "end": {"line": 4, "column": 11}, "help": "did you mean `description`?", "note": null, "fix": {"applicability": "unsafe"}},
+  {"file": "a/pyproject.toml", "rule": "unknown-key", "severity": "error", "message": "unknown key `descripton` in `[project]`", "start": {"line": 4, "column": 1}, "end": {"line": 4, "column": 11}, "help": "did you mean `description`?", "note": null, "fix": {"title": "rename to `description`", "applicability": "unsafe"}},
   {"file": "a/pyproject.toml", "rule": "deprecated-metadata", "severity": "warning", "message": "the `project.license` table is deprecated", "start": {"line": 5, "column": 11}, "end": {"line": 5, "column": 27}, "help": "use an SPDX license expression such as `license = \"MIT\"`, and list license files in `license-files` (PEP 639)", "note": null, "fix": null},
-  {"file": "b/pyproject.toml", "rule": "deprecated-setting", "severity": "warning", "message": "Ruff remaps the rule code `PLR1701` to `SIM101`", "start": {"line": 4, "column": 11}, "end": {"line": 4, "column": 20}, "help": "use `SIM101`", "note": "checked against Ruff 0.16.8, which the project's requirements allow", "fix": {"applicability": "safe"}}
+  {"file": "b/pyproject.toml", "rule": "deprecated-setting", "severity": "warning", "message": "Ruff remaps the rule code `PLR1701` to `SIM101`", "start": {"line": 4, "column": 11}, "end": {"line": 4, "column": 20}, "help": "use `SIM101`", "note": "checked against Ruff 0.16.8, which the project's requirements allow", "fix": {"title": "replace with `SIM101`", "applicability": "safe"}}
 ]
 
 ----- stderr -----

@@ -405,3 +405,22 @@ fn writes_json() {
         raw
     );
 }
+
+#[test]
+fn shows_fixes_as_a_diff_without_writing() {
+    let project = Project::with_pyproject(FIXABLE);
+    snapshot!(project.check().arg("--diff"));
+    assert_eq!(project.read("pyproject.toml").as_bytes(), FIXABLE);
+}
+
+#[test]
+fn shows_unsafe_fixes_as_a_diff_on_request() {
+    let project = Project::with_pyproject(FIXABLE);
+    snapshot!(project.check().args(["--diff", "--unsafe-fixes"]));
+}
+
+#[test]
+fn diff_passes_when_nothing_is_fixable() {
+    let project = Project::with_pyproject(b"[project]\nname = \"demo\"\nversion = \"1\"\n");
+    snapshot!(project.check().arg("--diff"));
+}

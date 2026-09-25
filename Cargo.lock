@@ -835,6 +835,7 @@ dependencies = [
  "insta",
  "insta-cmd",
  "pyprojx_core",
+ "similar",
  "tempfile",
 ]
 

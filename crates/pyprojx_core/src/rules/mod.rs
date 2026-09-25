@@ -78,7 +78,10 @@ impl Context<'_> {
                 && crate::document::get(table, suggestion).is_none()
             {
                 let edit = rename(self.text, key.span(), name, suggestion);
-                diagnostic = diagnostic.with_fix(Fix::unsafe_(vec![edit]));
+                diagnostic = diagnostic.with_fix(Fix::unsafe_(
+                    format!("rename to `{suggestion}`"),
+                    vec![edit],
+                ));
             }
             self.report(diagnostic);
         }

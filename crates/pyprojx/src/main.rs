@@ -36,6 +36,10 @@ struct CheckArgs {
     /// renaming a misspelled key to a guess. Review them before committing.
     #[arg(long)]
     unsafe_fixes: bool,
+    /// Show the changes the fixes would make, without making them. Exits with 1
+    /// if there are any.
+    #[arg(long)]
+    diff: bool,
     /// How to write diagnostics.
     #[arg(long, value_enum, default_value_t)]
     output_format: OutputFormat,
@@ -74,6 +78,7 @@ fn main() -> ExitCode {
             let options = check::Options {
                 fix: args.fix.then_some(fixable),
                 fixable,
+                diff: args.diff,
                 format: args.output_format,
             };
             check::run(args.paths, &options)
