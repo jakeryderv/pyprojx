@@ -74,6 +74,34 @@ pyprojx is written in Rust and distributed on PyPI as prebuilt binaries, like
 Ruff and uv, so no Rust toolchain is needed to install it. Run it with
 `uvx pyprojx check`, or install it with `uv tool install pyprojx`.
 
+## Use in pre-commit and CI
+
+To run pyprojx with [pre-commit](https://pre-commit.com), add a local hook to
+`.pre-commit-config.yaml`. pre-commit installs the prebuilt package from PyPI,
+so no Rust toolchain is needed; update the version to upgrade.
+
+```yaml
+repos:
+  - repo: local
+    hooks:
+      - id: pyprojx
+        name: pyprojx
+        entry: pyprojx check
+        language: python
+        additional_dependencies: [pyprojx==0.6.0] # x-release-please-version
+        files: (^|/)pyproject\.toml$
+```
+
+Use `entry: pyprojx check --fix` to apply safe fixes on commit instead.
+
+In GitHub Actions, `--output-format github` shows diagnostics as annotations on
+the pull request:
+
+```yaml
+- uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+- run: uvx pyprojx@0.6.0 check --output-format github # x-release-please-version
+```
+
 ## Learn more and contribute
 
 - [Project vision](https://github.com/jakeryderv/pyprojx/blob/main/docs/vision.md):

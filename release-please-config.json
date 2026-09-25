@@ -31,6 +31,10 @@
           "type": "toml",
           "path": "Cargo.lock",
           "jsonpath": "$.package[?(@.name == 'pyprojx' || @.name.value == 'pyprojx' || @.name == 'pyprojx_core' || @.name.value == 'pyprojx_core')].version"
+        },
+        {
+          "type": "generic",
+          "path": "README.md"
         }
       ]
     }
