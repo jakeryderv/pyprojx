@@ -18,6 +18,7 @@ warning[unknown-key]: unknown key `module-nme` in `[tool.uv.build-backend]`
    |
    = help: did you mean `module-name`? uv_build ignores it
    = note: checked against uv_build 0.7.0 to 0.7.22, which `build-system.requires` allows
+   = fix: rename to `module-name` (`--fix --unsafe-fixes`)
 
 warning[unsupported-feature]: some uv_build versions the project allows do not support `tool.uv.build-backend.namespace`
   --> pyproject.toml:11:1

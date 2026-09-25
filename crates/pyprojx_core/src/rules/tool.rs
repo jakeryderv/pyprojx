@@ -515,7 +515,10 @@ impl Checker {
             && get(table, suggestion).is_none()
         {
             let edit = rename(context.text, span, name, suggestion);
-            diagnostic = diagnostic.with_fix(Fix::unsafe_(vec![edit]));
+            diagnostic = diagnostic.with_fix(Fix::unsafe_(
+                format!("rename to `{suggestion}`"),
+                vec![edit],
+            ));
         }
         let path = prefix.strip_suffix('.').unwrap_or_default();
         context.report(self.treat(diagnostic, tool.unknown_key(path)));
@@ -672,7 +675,7 @@ impl Checker {
             && get(table, new).is_none()
         {
             let edit = rename(context.text, span, name, new);
-            diagnostic = diagnostic.with_fix(Fix::safe(vec![edit]));
+            diagnostic = diagnostic.with_fix(Fix::safe(format!("rename to `{new}`"), vec![edit]));
         }
         context.report(diagnostic);
     }

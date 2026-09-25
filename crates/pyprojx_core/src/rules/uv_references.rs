@@ -202,7 +202,10 @@ fn undefined(
         && !taken(suggestion)
     {
         let edit = rename(text, span, name, suggestion);
-        diagnostic = diagnostic.with_fix(Fix::unsafe_(vec![edit]));
+        diagnostic = diagnostic.with_fix(Fix::unsafe_(
+            format!("replace with `{suggestion}`"),
+            vec![edit],
+        ));
     }
     diagnostic
 }

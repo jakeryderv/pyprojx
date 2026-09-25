@@ -20,6 +20,7 @@ error[unknown-key]: unknown key `descripton` in `[project]`
   | ^^^^^^^^^^
   |
   = help: did you mean `description`?
+  = fix: rename to `description` (`--fix --unsafe-fixes`)
 
 warning[deprecated-metadata]: the `project.license` table is deprecated
  --> a/pyproject.toml:5:11
@@ -37,6 +38,7 @@ warning[deprecated-setting]: Ruff remaps the rule code `PLR1701` to `SIM101`
   |
   = help: use `SIM101`
   = note: checked against Ruff 0.16.8, which the project's requirements allow
+  = fix: replace with `SIM101` (`--fix`)
 
 Found 1 error and 2 warnings.
 1 problem is fixable with `--fix` (1 more with `--unsafe-fixes`).

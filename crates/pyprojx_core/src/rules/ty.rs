@@ -96,7 +96,10 @@ fn check_rule(
             && get(rules, suggestion).is_none()
         {
             let edit = rename(context.text, span, name, suggestion);
-            diagnostic = diagnostic.with_fix(Fix::unsafe_(vec![edit]));
+            diagnostic = diagnostic.with_fix(Fix::unsafe_(
+                format!("rename to `{suggestion}`"),
+                vec![edit],
+            ));
         }
         context.report(diagnostic);
         return;

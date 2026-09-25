@@ -88,7 +88,8 @@ pub fn json(reports: &[Report]) -> String {
             let fix = match &diagnostic.fix {
                 None => "null".to_owned(),
                 Some(fix) => format!(
-                    "{{\"applicability\": {}}}",
+                    "{{\"title\": {}, \"applicability\": {}}}",
+                    json_string(&fix.title),
                     json_string(match fix.applicability {
                         Applicability::Safe => "safe",
                         Applicability::Unsafe => "unsafe",
@@ -111,6 +112,20 @@ pub fn json(reports: &[Report]) -> String {
     } else {
         format!("[\n{}\n]\n", entries.join(",\n"))
     }
+}
+
+/// A unified diff of each file whose fixes change it.
+pub fn diff(reports: &[Report]) -> String {
+    let mut output = String::new();
+    for report in reports.iter().filter(|report| report.fixed > 0) {
+        let diff = similar::TextDiff::from_lines(&report.original, &report.text);
+        let _ = write!(
+            output,
+            "{}",
+            diff.unified_diff().header(&report.display, &report.display)
+        );
+    }
+    output
 }
 
 /// The 1-based line and column, in characters, of a byte offset in `text`.

@@ -18,6 +18,7 @@ warning[unknown-key]: unknown key `index-ur` in `[tool.uv]`
   |
   = help: did you mean `index-url`? uv warns about it and then ignores every other `[tool.uv]` setting too, such as `index-url` and `[[tool.uv.index]]`, though it still reads `sources`
   = note: checked against uv 0.9.0 to [latest], which `tool.uv.required-version` allows
+  = fix: rename to `index-url` (`--fix --unsafe-fixes`)
 
 error[invalid-value]: invalid value for `tool.uv.managed`: expected a boolean
  --> pyproject.toml:8:11
@@ -65,6 +66,7 @@ warning[unknown-key]: unknown key `explict` in `[[tool.uv.index]]`
    |
    = help: did you mean `explicit`? uv ignores it
    = note: checked against uv 0.9.0 to [latest], which `tool.uv.required-version` allows
+   = fix: rename to `explicit` (`--fix --unsafe-fixes`)
 
 Found 2 errors and 4 warnings.
 2 problems are fixable with `--fix --unsafe-fixes`.

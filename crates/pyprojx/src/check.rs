@@ -23,6 +23,8 @@ pub struct Options {
     pub fix: Option<Applicability>,
     /// Count fixes at least this applicable as available.
     pub fixable: Applicability,
+    /// Show the changes the fixes would make instead of making them.
+    pub diff: bool,
     pub format: OutputFormat,
 }
 
@@ -30,6 +32,8 @@ pub struct Options {
 pub struct Report {
     /// The path shown in output.
     pub display: String,
+    /// The file's text before any fixes.
+    pub original: String,
     /// The file's text, after any fixes, which diagnostic spans refer to.
     pub text: String,
     pub diagnostics: Vec<Diagnostic>,
@@ -52,7 +56,7 @@ pub fn run(paths: Vec<PathBuf>, options: &Options) -> Status {
     let mut reports = Vec::new();
     let mut failed = false;
     for target in &targets {
-        match check(target, options.fix) {
+        match check(target, options) {
             Ok(report) => reports.push(report),
             Err(message) => {
                 anstream::eprintln!("error: {message}");
@@ -63,6 +67,9 @@ pub fn run(paths: Vec<PathBuf>, options: &Options) -> Status {
     // Nothing was checked, so there is nothing to report.
     if reports.is_empty() {
         return Status::Error;
+    }
+    if options.diff {
+        return show_diff(&reports, failed);
     }
     let output = match options.format {
         OutputFormat::Full => output::full(&reports, options.fixable),
@@ -87,18 +94,47 @@ pub fn run(paths: Vec<PathBuf>, options: &Options) -> Status {
     }
 }
 
-/// Checks a file, first fixing it with fixes at least as applicable as `fix`,
-/// if given, and writing it.
-fn check(target: &Target, fix: Option<Applicability>) -> Result<Report, String> {
+/// Prints the changes fixes would make to `reports`' files, and how many
+/// problems they would fix. Fails if there are any, like `ruff check --diff`.
+fn show_diff(reports: &[Report], failed: bool) -> Status {
+    let mut stdout = anstream::stdout().lock();
+    if let Err(error) = write!(stdout, "{}", output::diff(reports)) {
+        anstream::eprintln!("error: {error}");
+        return Status::Error;
+    }
+    let fixed: usize = reports.iter().map(|report| report.fixed).sum();
+    if fixed == 0 {
+        anstream::eprintln!("No fixes available.");
+    } else {
+        anstream::eprintln!("Would fix {}.", output::plural(fixed, "problem"));
+    }
+    if failed {
+        Status::Error
+    } else if fixed > 0 {
+        Status::Failure
+    } else {
+        Status::Success
+    }
+}
+
+/// Checks a file, first fixing it if asked to, and writing it unless showing
+/// the changes instead.
+fn check(target: &Target, options: &Options) -> Result<Report, String> {
     let bytes = std::fs::read(&target.path).map_err(|error| match error.kind() {
         io::ErrorKind::NotFound => format!("`{}` does not exist", target.display),
         _ => format!("failed to read `{}`: {error}", target.display),
     })?;
-    let lock = find_lock(target, &String::from_utf8_lossy(&bytes));
+    let original = String::from_utf8_lossy(&bytes).into_owned();
+    let lock = find_lock(target, &original);
+    let fix = if options.diff {
+        Some(options.fixable)
+    } else {
+        options.fix
+    };
     let (checked, fixed) = match fix {
         Some(applicability) => {
             let fixed = pyprojx_core::fix::fix(bytes, lock.as_ref(), applicability);
-            if fixed.fixed > 0 {
+            if fixed.fixed > 0 && !options.diff {
                 std::fs::write(&target.path, &fixed.text)
                     .map_err(|error| format!("failed to write `{}`: {error}", target.display))?;
             }
@@ -115,6 +151,7 @@ fn check(target: &Target, fix: Option<Applicability>) -> Result<Report, String> 
     };
     Ok(Report {
         display: target.display.clone(),
+        original,
         text: checked.text,
         diagnostics: checked.diagnostics,
         fixed,

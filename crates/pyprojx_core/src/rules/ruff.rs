@@ -254,7 +254,10 @@ impl RuffChecks {
                 )
                 .with_help(format!("use `{new}`"))
                 // Ruff reads the old code as the new one.
-                .with_fix(Fix::safe(vec![rename(context.text, span, text, new)])),
+                .with_fix(Fix::safe(
+                    format!("replace with `{new}`"),
+                    vec![rename(context.text, span, text, new)],
+                )),
             );
             return;
         }
@@ -274,7 +277,10 @@ impl RuffChecks {
                 let edit = rename(context.text, span, text, suggestion);
                 diagnostic = diagnostic
                     .with_help(format!("did you mean `{suggestion}`?"))
-                    .with_fix(Fix::unsafe_(vec![edit]));
+                    .with_fix(Fix::unsafe_(
+                        format!("replace with `{suggestion}`"),
+                        vec![edit],
+                    ));
             } else if let Some(removed) = data.and_then(|data| data.removed_before(newest)) {
                 diagnostic = diagnostic
                     .with_help(format!("Ruff removed it in {}", checker.release(removed)));
@@ -302,11 +308,14 @@ impl RuffChecks {
                     span,
                 )
                 .with_help("remove it")
-                .with_fix(Fix::safe(vec![remove_entry(
-                    context.text,
-                    &selector.entries,
-                    selector.index,
-                )])),
+                .with_fix(Fix::safe(
+                    format!("remove `{text}`"),
+                    vec![remove_entry(
+                        context.text,
+                        &selector.entries,
+                        selector.index,
+                    )],
+                )),
             );
             return;
         }
@@ -427,7 +436,7 @@ fn report_moved(context: &mut Context<'_>, moved: &[Range<usize>], movable: bool
                 )
             })
             .collect();
-        diagnostic = diagnostic.with_fix(Fix::safe(edits));
+        diagnostic = diagnostic.with_fix(Fix::safe("move them under `lint`", edits));
     }
     context.report(diagnostic);
 }

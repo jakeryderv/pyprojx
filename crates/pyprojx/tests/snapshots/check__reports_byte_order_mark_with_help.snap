@@ -17,6 +17,7 @@ error[byte-order-mark]: file starts with a UTF-8 byte order mark
   | ^
   |
   = help: tomllib (used by pip and most build backends) and uv reject it; save the file as UTF-8 without a byte order mark
+  = fix: remove the byte order mark (`--fix`)
 
 error[missing-key]: `[project]` must set `version` or list it in `dynamic`
  --> pyproject.toml:1:3

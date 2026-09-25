@@ -218,6 +218,7 @@ mod tests {
         let typo = |name: &str| {
             let start = text.find(name).unwrap();
             Diagnostic::new(Rule::UnknownKey, "typo", start..start + 3).with_fix(Fix::unsafe_(
+                "rename to `name`",
                 vec![rename(text, start..start + 3, name, "name")],
             ))
         };

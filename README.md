@@ -66,7 +66,9 @@ diagnostics. The JSON format is experimental: its fields may change.
 With `--fix`, it applies safe fixes, which tools read as they read the original,
 writes the file, and reports what is left. `--unsafe-fixes` adds fixes that may
 change what the configuration means, such as renaming a misspelled key to the
-closest known one; review those before committing them.
+closest known one; review those before committing them. Each fixable diagnostic
+says what its fix does and which flags apply it, and `--diff` shows the changes
+the fixes would make without making them.
 
 pyprojx is written in Rust and distributed on PyPI as prebuilt binaries, like
 Ruff and uv, so no Rust toolchain is needed to install it. Run it with

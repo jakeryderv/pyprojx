@@ -1,0 +1,46 @@
+---
+source: crates/pyprojx/tests/check.rs
+info:
+  program: pyprojx
+  args:
+    - check
+    - "--diff"
+  env:
+    NO_COLOR: "1"
+---
+success: false
+exit_code: 1
+----- stdout -----
+--- pyproject.toml
++++ pyproject.toml
+@@ -1,4 +1,4 @@
+-﻿[project]
++[project]
+ name = "demo"
+ version = "0.1.0"
+ descripton = "A demo"
+@@ -10,17 +10,16 @@
+ [tool.ruff]
+ line-lenght = 88
+ # Linter settings
+-select = ["E", "PLR1701", "E5O1"]  # keep
+-ignore = [
+-  "ANN101",  # removed
++lint.select = ["E", "SIM101", "E5O1"]  # keep
++lint.ignore = [
+   "E501",
+ ]
+ 
+-[tool.ruff.isort]
++[tool.ruff.lint.isort]
+ known-first-party = ["demo"]
+ 
+ [tool.ty.analysis]
+-strict-literal-narrowing = true
++strict-equality-semantics = true
+ 
+ [tool.ty.rules]
+ unresolved-imprt = "error"
+
+----- stderr -----
+Would fix 5 problems.
