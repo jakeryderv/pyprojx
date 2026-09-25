@@ -2,8 +2,13 @@
 //!
 //! A lock records the versions a project installs, which are more precise than
 //! the ranges its requirements allow. Only names and versions are read.
+//!
+//! Checking takes a parsed lock, so that it needs no file access; [`find`]
+//! finds a project's lock file on disk for front ends such as the CLI and the
+//! language server.
 
 use std::collections::BTreeMap;
+use std::path::Path;
 
 use toml::de::DeTable;
 
@@ -84,6 +89,58 @@ impl Lock {
     pub fn has_local_package(&self, name: &str) -> bool {
         normalize_name(name).is_ok_and(|name| self.local.contains(&name))
     }
+}
+
+/// A lock file that could not be read.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LockError {
+    /// The file in messages, as [`Lock::name`] would be.
+    pub name: String,
+    pub message: String,
+}
+
+/// Finds the lock file for the project whose `pyproject.toml`, with text
+/// `pyproject`, is at `path`: a `uv.lock` or `pylock.toml` next to it, or the
+/// `uv.lock` of a workspace in a parent directory that includes the project.
+/// The lock is named in messages by its path relative to the project's
+/// directory, after `prefix`, such as `packages/demo/../../uv.lock`.
+///
+/// Returns `None` if there is no lock file, or if the nearest `uv.lock` in a
+/// parent directory is for another project.
+pub fn find(path: &Path, pyproject: &str, prefix: &str) -> Option<Result<Lock, LockError>> {
+    let dir = std::path::absolute(path).ok()?.parent()?.to_path_buf();
+    let name = project_name(pyproject);
+    for (depth, dir) in dir.ancestors().enumerate() {
+        let candidates: &[(&str, LockKind)] = if depth == 0 {
+            &[("uv.lock", LockKind::Uv), ("pylock.toml", LockKind::Pylock)]
+        } else {
+            &[("uv.lock", LockKind::Uv)]
+        };
+        for &(file, kind) in candidates {
+            let path = dir.join(file);
+            if !path.is_file() {
+                continue;
+            }
+            let display = format!("{prefix}{}{file}", "../".repeat(depth));
+            let lock = std::fs::read_to_string(&path)
+                .map_err(|error| error.to_string())
+                .and_then(|text| Lock::parse(kind, display.clone(), &text));
+            return match lock {
+                // A parent's lock is for another project unless it includes this one.
+                Ok(lock)
+                    if depth == 0 || name.as_deref().is_some_and(|n| lock.has_local_package(n)) =>
+                {
+                    Some(Ok(lock))
+                }
+                Ok(_) => None,
+                Err(message) => Some(Err(LockError {
+                    name: display,
+                    message,
+                })),
+            };
+        }
+    }
+    None
 }
 
 /// The `[project]` name in the text of a `pyproject.toml` file, if it has one,
