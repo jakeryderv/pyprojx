@@ -3,8 +3,7 @@
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
-use pyprojx_core::lock::project_name;
-use pyprojx_core::{Applicability, Diagnostic, Lock, LockKind, Severity};
+use pyprojx_core::{Applicability, Diagnostic, Lock, Severity};
 
 use crate::Status;
 use crate::output::{self, OutputFormat};
@@ -190,52 +189,18 @@ fn nearest_pyproject(start: &Path) -> Option<Target> {
         })
 }
 
-/// Finds the lock file for the project: a `uv.lock` or `pylock.toml` next to
-/// its `pyproject.toml`, or the `uv.lock` of a workspace in a parent directory
-/// that includes the project. A lock that cannot be read is skipped with a
-/// warning.
+/// Finds the lock file for the project, reporting one that cannot be read.
 fn find_lock(target: &Target, pyproject: &str) -> Option<Lock> {
-    let dir = std::path::absolute(&target.path)
-        .ok()?
-        .parent()?
-        .to_path_buf();
-    let prefix = target
-        .display
-        .strip_suffix(PYPROJECT)
-        .unwrap_or_default()
-        .to_owned();
-    let name = project_name(pyproject);
-    for (depth, dir) in dir.ancestors().enumerate() {
-        let candidates: &[(&str, LockKind)] = if depth == 0 {
-            &[("uv.lock", LockKind::Uv), ("pylock.toml", LockKind::Pylock)]
-        } else {
-            &[("uv.lock", LockKind::Uv)]
-        };
-        for &(file, kind) in candidates {
-            let path = dir.join(file);
-            if !path.is_file() {
-                continue;
-            }
-            let display = format!("{prefix}{}{file}", "../".repeat(depth));
-            let lock = std::fs::read_to_string(&path)
-                .map_err(|error| error.to_string())
-                .and_then(|text| Lock::parse(kind, display.clone(), &text));
-            match lock {
-                // A parent's lock is for another project unless it includes this one.
-                Ok(lock)
-                    if depth == 0 || name.as_deref().is_some_and(|n| lock.has_local_package(n)) =>
-                {
-                    return Some(lock);
-                }
-                Ok(_) => return None,
-                Err(error) => {
-                    anstream::eprintln!(
-                        "warning: failed to read `{display}`, so tool versions are not taken from it: {error}"
-                    );
-                    return None;
-                }
-            }
+    let prefix = target.display.strip_suffix(PYPROJECT).unwrap_or_default();
+    match pyprojx_core::lock::find(&target.path, pyproject, prefix)? {
+        Ok(lock) => Some(lock),
+        Err(error) => {
+            anstream::eprintln!(
+                "warning: failed to read `{}`, so tool versions are not taken from it: {}",
+                error.name,
+                error.message
+            );
+            None
         }
     }
-    None
 }
