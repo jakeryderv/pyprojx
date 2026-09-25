@@ -1,0 +1,21 @@
+---
+source: crates/pyprojx/tests/check.rs
+info:
+  program: pyprojx
+  args:
+    - check
+    - "--output-format"
+    - github
+    - a
+    - b/pyproject.toml
+  env:
+    NO_COLOR: "1"
+---
+success: false
+exit_code: 1
+----- stdout -----
+::error title=pyprojx (unknown-key),file=a/pyproject.toml,line=4,col=1,endLine=4,endColumn=11::unknown key `descripton` in `[project]`%0Adid you mean `description`?
+::warning title=pyprojx (deprecated-metadata),file=a/pyproject.toml,line=5,col=11,endLine=5,endColumn=27::the `project.license` table is deprecated%0Ause an SPDX license expression such as `license = "MIT"`, and list license files in `license-files` (PEP 639)
+::warning title=pyprojx (deprecated-setting),file=b/pyproject.toml,line=4,col=11,endLine=4,endColumn=20::Ruff remaps the rule code `PLR1701` to `SIM101`%0Ause `SIM101`%0Achecked against Ruff 0.16.8, which the project's requirements allow
+
+----- stderr -----

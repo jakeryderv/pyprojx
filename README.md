@@ -55,9 +55,13 @@ Found 1 error.
 ```
 
 `pyprojx check` checks the nearest `pyproject.toml` in the current directory or
-its parents, or the file or directory you pass. It exits with 0 when there are no
-errors (warnings do not fail the check), 1 when there are, and 2 when the file
-cannot be checked.
+its parents, or the files and directories you pass. It exits with 0 when there
+are no errors (warnings do not fail the check), 1 when there are, and 2 when a
+file cannot be checked.
+
+`--output-format github` writes GitHub Actions workflow commands, which show as
+annotations on pull requests, and `--output-format json` writes a JSON array of
+diagnostics. The JSON format is experimental: its fields may change.
 
 With `--fix`, it applies safe fixes, which tools read as they read the original,
 writes the file, and reports what is left. `--unsafe-fixes` adds fixes that may

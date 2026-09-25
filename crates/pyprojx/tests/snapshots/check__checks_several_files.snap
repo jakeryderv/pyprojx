@@ -1,0 +1,45 @@
+---
+source: crates/pyprojx/tests/check.rs
+info:
+  program: pyprojx
+  args:
+    - check
+    - a/pyproject.toml
+    - b
+    - missing.toml
+  env:
+    NO_COLOR: "1"
+---
+success: false
+exit_code: 2
+----- stdout -----
+error[unknown-key]: unknown key `descripton` in `[project]`
+ --> a/pyproject.toml:4:1
+  |
+4 | descripton = "typo, with: punctuation"
+  | ^^^^^^^^^^
+  |
+  = help: did you mean `description`?
+
+warning[deprecated-metadata]: the `project.license` table is deprecated
+ --> a/pyproject.toml:5:11
+  |
+5 | license = { text = "MIT" }
+  |           ^^^^^^^^^^^^^^^^
+  |
+  = help: use an SPDX license expression such as `license = "MIT"`, and list license files in `license-files` (PEP 639)
+
+warning[deprecated-setting]: Ruff remaps the rule code `PLR1701` to `SIM101`
+ --> b/pyproject.toml:4:11
+  |
+4 | select = ["PLR1701"]
+  |           ^^^^^^^^^
+  |
+  = help: use `SIM101`
+  = note: checked against Ruff 0.16.8, which the project's requirements allow
+
+Found 1 error and 2 warnings.
+1 problem is fixable with `--fix` (1 more with `--unsafe-fixes`).
+
+----- stderr -----
+error: `missing.toml` does not exist
