@@ -25,7 +25,7 @@ lsp-server = { version = "0.10.0", default-features = false }
 lsp-types = { package = "gen-lsp-types", version = "0.11.0", default-features = false, features = ["url"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-similar = { version = "2.7.0", default-features = false, features = ["text"] }
+similar = { version = "3.2.0", default-features = false, features = ["text"] }
 spdx = { version = "0.13.5", default-features = false }
 strsim = "0.11.1"
 tempfile = "3.27.0"
