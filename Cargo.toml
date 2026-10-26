@@ -25,7 +25,7 @@ lsp-server = { version = "0.10.0", default-features = false }
 lsp-types = { package = "gen-lsp-types", version = "0.11.0", default-features = false, features = ["url"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-similar = { version = "2.7.0", default-features = false, features = ["text"] }
+similar = { version = "3.2.0", default-features = false, features = ["text"] }
 spdx = { version = "0.13.5", default-features = false }
 strsim = "0.11.1"
 tempfile = "3.27.0"
@@ -35,9 +35,9 @@ toml-test-data = "2.14.1"
 toml_parser = { version = "1.1.3", default-features = false, features = ["std"] }
 # uv's internal crates have unstable APIs; pin exactly and update them together
 # (each version is a component of one uv release). Only `standards.rs` uses them.
-uv-normalize = "=0.0.85"
-uv-pep440 = { version = "=0.0.85", features = ["version-ranges"] }
-uv-pep508 = "=0.0.85"
+uv-normalize = "=0.0.93"
+uv-pep440 = { version = "=0.0.93", features = ["version-ranges"] }
+uv-pep508 = "=0.0.93"
 # The version range type used by uv-pep440, under uv's fork's package name.
 version-ranges = { package = "astral-version-ranges", version = "0.2.2" }
 
